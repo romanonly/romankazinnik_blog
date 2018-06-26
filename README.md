@@ -11,12 +11,19 @@ Convolutional Deep Learning: insights on multiscale representation
 The German Traffic Sign Recognition Benchmark(GTSRB) http://benchmark.ini.rub.de/?section=gtsrb&subsection=dataset
 
 GTSRB
+
 ├── GT-final_test.csv
+
 ├── Final_Test
+
 │   └── Images
+
 └── Final_Training
+
     └── Images
+    
         ├── 00000
+        
         ├── ...
 
 2.2 run:
