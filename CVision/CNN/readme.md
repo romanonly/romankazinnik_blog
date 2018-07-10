@@ -31,3 +31,6 @@ GTSRB
 
     1.2 python trafficsignscnn1vs2vs3.py
     
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/17115347/42516395-f80fb102-842b-11e8-9e68-1189f0248889.png" width="770"/>
+</p>
