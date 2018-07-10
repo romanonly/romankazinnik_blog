@@ -1,6 +1,8 @@
-# romankazinnik_blog
+# www.romankazinnik.com blog
 
-code for romankazinnik.com blog
+code for my blog: https://www.romankazinnik.com/feed/convolutional-deep-learning-insights-on-multiscale-representation
+
+# Figure below shows three expirements: can tell winner and loser?
 
 1. Convolutional Deep Learning: insights on multiscale representation
 
