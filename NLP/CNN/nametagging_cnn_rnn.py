@@ -5,6 +5,8 @@ from keras.utils import Progbar
 from keras.preprocessing.sequence import pad_sequences
 from keras.initializers import RandomUniform
 
+from matplotlib import pyplot as plt
+
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -106,7 +108,7 @@ if __name__ == "__main__":
     # Set Bi-LSTM:
     # will each word include in addtion to word embedding also (1) case indices (2) char indices
     #
-    epochs = 150
+    epochs = 50
     case2Idx,char2Idx, maxlen = {}, {}, 0
     #case2Idx,maxlen = {}, 52
 
@@ -158,9 +160,15 @@ if __name__ == "__main__":
     #
     # No overfit
     #
-    #output = Bidirectional(LSTM(200, return_sequences=True, dropout=0.50, recurrent_dropout=0.25))(output)
+    output = Bidirectional(LSTM(200, return_sequences=True, dropout=0.50, recurrent_dropout=0.25))(output)
+
+    # 0.66 vs 0.75 overfit after 20 epochs
     #output = Bidirectional(LSTM(50, return_sequences=True, dropout=0.65, recurrent_dropout=0.50))(output)
-    output = Bidirectional(LSTM(30, return_sequences=True, dropout=0.3, recurrent_dropout=0.25))(output)
+
+    # 0.7 after 20 epochs
+    #output = Bidirectional(LSTM(30, return_sequences=True, dropout=0.3, recurrent_dropout=0.25))(output)#, stateful=False
+
+    #output = Bidirectional(LSTM(10, return_sequences=True, dropout=0.3, recurrent_dropout=0.25))(output)  #accuracy f1 0.5 after 20 epochs , stateful=False
 
     output = TimeDistributed(Dense(len(label2Idx), activation='softmax'))(output)
 
@@ -179,26 +187,51 @@ if __name__ == "__main__":
     model.compile(loss='sparse_categorical_crossentropy', optimizer='nadam')
     model.summary()
     # plot_model(model, to_file='model.png')
+    train_loss, test_loss=[], []
+
+    plt.ion();  plt.figure(); #plt.xlim(0, 10); plt.ylim(0, 100)
+    plt.hold(True)
 
 
     for epoch in range(epochs):
         print("Epoch %d/%d"%(epoch,epochs))
         a = Progbar(len(train_batch_len))
-        for i,batch in enumerate(iterate_minibatches(train_batch,train_batch_len)):
-            labels, tokens, casing,char = batch
+
+        train_batches = iterate_minibatches(train_batch, train_batch_len)
+        dev_batches = iterate_minibatches(dev_batch, dev_batch_len)
+
+        for i,batch_zip in enumerate(zip(train_batches, dev_batches)):
+            labels, tokens, casing,char = batch_zip[0]
+            labels0, tokens0, casing0, char0 = batch_zip[1]
 
             if casing.shape[1]>0 and char.shape[1]>0:
-                model.train_on_batch([tokens, casing,char], labels)
+                #model.train_on_batch([tokens, casing,char], labels)
+                x = [tokens, casing, char]
+                x0= [tokens0, casing0, char0]
             elif casing.shape[1] > 0 and char.shape[1] == 0:
-                model.train_on_batch([tokens, casing], labels)
+                #model.train_on_batch([tokens, casing], labels)
+                x = [tokens, casing]
+                x0= [tokens0, casing0]
             elif casing.shape[1] == 0 and char.shape[1] > 0:
-                model.train_on_batch([tokens, char], labels)
+                #model.train_on_batch([tokens, char], labels)
+                x = [tokens, char]
+                x0= [tokens0, char0]
             elif casing.shape[1]==0 and char.shape[1]==0:
-                model.train_on_batch(tokens, labels)
+                #model.train_on_batch(tokens, labels)
+                x = tokens
+                x0= tokens0
+
+
+            temp1=model.train_on_batch(x, labels)
+            train_loss.append(temp1) #, test_loss = [], [] #model.reset_states()
+            temp2=model.test_on_batch(x0,labels0)
+            test_loss.append(temp2) #model.reset_states()
+
             if epoch % 10 == 0 and i % 20 == 0:
                 a.update(i)
 
-        if epoch % 10 == 0:
+        plt.plot(test_loss, color="black"); plt.plot(train_loss, color="red");
+        if epoch % 5 == 0:
             # Performance on train dataset
             d_batch0 = random.choices(population=train_batch, k=10)
             predLabels0, correctLabels0 = tag_dataset(d_batch0, model,Progbar)
@@ -212,16 +245,22 @@ if __name__ == "__main__":
 
         print(' ========= epoch ',epoch)
 
-
+    plt.hold(False)
+    #plt.ioff();
+    plt.figure();
+    plt.plot(test_loss, color="black");
+    plt.plot(train_loss, color="red");
+    plt.title("loss train(red) test");
+    plt.show()
     #   Performance on train dataset
-    predLabels, correctLabels = tag_dataset(train_batch, model,Progbar)
-    pre_test, rec_test, f1_test= compute_f1(predLabels, correctLabels, idx2Label)
-    print("\nTrain-Data: Prec: %.3f, Rec: %.3f, F1: %.3f" % (pre_test, rec_test, f1_test))
+    #predLabels, correctLabels = tag_dataset(train_batch, model,Progbar)
+    #pre_test, rec_test, f1_test= compute_f1(predLabels, correctLabels, idx2Label)
+    #print("\nTrain-Data: Prec: %.3f, Rec: %.3f, F1: %.3f" % (pre_test, rec_test, f1_test))
 
     #   Performance on dev dataset
-    predLabels, correctLabels = tag_dataset(dev_batch, model,Progbar)
-    pre_dev, rec_dev, f1_dev = compute_f1(predLabels, correctLabels, idx2Label)
-    print("\nDev-Data: Prec: %.3f, Rec: %.3f, F1: %.3f" % (pre_dev, rec_dev, f1_dev))
+    #predLabels, correctLabels = tag_dataset(dev_batch, model,Progbar)
+    #pre_dev, rec_dev, f1_dev = compute_f1(predLabels, correctLabels, idx2Label)
+    #print("\nDev-Data: Prec: %.3f, Rec: %.3f, F1: %.3f" % (pre_dev, rec_dev, f1_dev))
 
     #   Performance on test dataset
     predLabels, correctLabels = tag_dataset(test_batch, model,Progbar)
