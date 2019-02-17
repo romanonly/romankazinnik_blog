@@ -7,6 +7,9 @@ Supervised ML can be a powerful tool, however there is a range of problems where
 
 read and plot banner data 
 
+![Alt text](https://user-images.githubusercontent.com/17115347/52920565-9a94d480-32c2-11e9-95c6-394b63094abe.png?raw=true "Title")
+
+
 2. train_webppl_models.Rmd	
 
 train two models
