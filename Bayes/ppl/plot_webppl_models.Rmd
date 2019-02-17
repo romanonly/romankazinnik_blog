@@ -1,0 +1,179 @@
+---
+title: "Two Bayesian inference models: supervised and unsupervised"
+# runtime: shiny
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This work demonstrates introducing  **latent** variables learning in Bayesian Networks to overcome the common limitations of frequentist (non-Bayesian p-values) statistics and also Bayesian supervised (non-learning) inference 
+
+
+## Bayesian inference: supervised and unsupervised models
+
+The example shows `data` that has three variables: `converted`, 
+`condition` and `hour`. Each website visitor is presented with either `control` or `treatment`  website banner (`condition` variable),  converted and time spent on the website
+are also known.
+
+```{r load-packages, message=FALSE, echo=FALSE, warning=FALSE, error=FALSE}
+
+library(jsonlite)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(reshape2)
+library(ggpubr)
+library(plyr)
+#require(RJSONIO) 
+library("rwebppl")
+```
+
+```{r load data, echo=FALSE}
+setwd('~/PycharmProjects/tests/webppl/')
+
+fname = '~/PycharmProjects/tests/webppl/Results2/models_banner_p1_p2.Rdata'
+load(fname, verbose = TRUE)
+
+print(str(df_banner))
+print(summary(df_banner))
+```
+
+## Bayesian inference: supervised and unsupervised models
+
+**Evrything that we don't know has probbaility.**
+
+Infere probability of conversion for 'Control' versus 'Treatment' groups and difference **delta** distribution that can be commonly used for confidence interval.
+
+Modeling based on existing variables 'converted' and 'group' shows no statistical 
+signifiance of 'group', confirmed by the frequentist 'p-test'.  
+
+Notuce that variable **time** is continuous and can not be utilized directly for inference.
+Oftenly non-learning **rules-based** used, which has multiple problems in production: hard thresholds, doesn't scale, non-learnt rules.
+
+
+# Model-1: Bayesian Statistical Significance    
+
+Both **p-value** and the convertion probability distributions difference show no evidence of statistical significance for the Control-Treatment condition. 
+
+```{r model-1-plot, echo=FALSE}
+
+p = p_model_1
+
+n2 = length(p[ p["Parameter"]=="control",]$value); n1 = 1; # MCMC: floor(n2/20)
+
+nb1 = 20
+b1 = 1/nb1*c(0:nb1)
+x = p[ p["Parameter"]=="control",]$value[c(n1:n2)]
+y = p[ p["Parameter"]=="treatment",]$value[c(n1:n2)]
+z = p[ p["Parameter"]=="delta",]$value[c(n1:n2)]
+
+# h1=hist(x, breaks=b1, main="control", xlab="control", probability = T)
+# h2=hist(y, breaks=b1, main="treatment", xlab="treatment", probability = T)
+par(mfrow=c(2,1))
+  h1=hist(x, breaks = b1, plot=F)
+  h2=hist(y, breaks = b1,plot=F)
+  plot(h1, col=rgb(1, 0, 0, 0.5), xlim = c(0,1),freq=F,
+       xlab = "Converted, Probability", main = "Converted: Control (red) vs. Treatment ")
+  plot(h2, col=rgb(0, 1, 0, 0.5),freq=F, xlim = c(0,1), add=TRUE)
+  hist(z, breaks=nb1, main="pdf(Control-Treatment): no statistical signifiance", xlab="Control-Treatment", col=rgb(1, 0, 0, 0.5), probability = T)
+```
+
+'ggplot'
+
+
+```{r model-1-plot2, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+require(ggplot2)
+require(reshape2)
+
+
+df_hist <- data.frame(control = p[ p["Parameter"]=="control",]$value[c(n1:n2)],
+                      treatment = p[ p["Parameter"]=="treatment",]$value[c(n1:n2)])
+
+
+ggplot(melt(df_hist), aes(value, fill = variable)) + geom_histogram(position = "dodge",binwidth=0.01) 
+```
+
+
+# Model-2: Robot-Human Latent Variable
+
+Learning a new 'Robot'-'Human' latent variable allows to correrctly identify the significance of the Control-Treatment condition.
+
+```{r model-2-plot1, echo=FALSE}
+p = p_model_2
+
+n2 = length(p[ p["Parameter"]=="control",]$value); n1 = floor(n2/20)
+par(mfrow=c(2,3))
+#b1 = nb1
+x = p[ p["Parameter"]=="control",]$value[c(n1:n2)]
+y = p[ p["Parameter"]=="treatment",]$value[c(n1:n2)]
+z = p[ p["Parameter"]=="delta",]$value[c(n1:n2)]
+
+x1 = p[ p["Parameter"]=="hour_human",]$value[c(n1:n2)]
+y1 = p[ p["Parameter"]=="hour_robot",]$value[c(n1:n2)]
+z1 = p[ p["Parameter"]=="robot",]$value[c(n1:n2)]
+
+x2 = p[ p["Parameter"]=="hypothesis",]$value[c(n1:n2)]
+
+nb2 = 20
+b2 = c(-3:25)
+#y = p[ p["Parameter"]=="chooseModel1vsModel2_bernoulli",]$value[c(n1:n2)]
+# hist(x, breaks=b1)
+# hist(x, breaks=b1, freq=F)
+par(mfrow=c(2,2))
+  h01=hist(x, breaks = b1, plot=F)
+  h02=hist(y, breaks = b1,plot=F)
+  h03=hist(z1, breaks = b1,plot=F)
+  
+  plot(h01, col=rgb(1, 0, 0, 0.5), xlim = c(0,1),freq=F,
+       xlab = "Converted, Probability", main = "Converted: Control (red) vs. Treatment (green) vs. Robot ")
+  plot(h02, col=rgb(0, 1, 0, 0.5),freq=F, xlim = c(0,1), add=TRUE)
+  plot(h03, col=rgb(0, 0, 1, 0.5),freq=F, xlim = c(0,1), add=TRUE)
+  
+  hist(z, breaks=10, main="pdf Control-Treatment", xlab="Control-Treatment", col=rgb(1, 0, 0, 0.5), probability = T)
+
+  h3=hist(x1, breaks = 10, plot=F)
+  h4=hist(y1, breaks = 10,plot=F)
+  plot(h3, col=rgb(1, 0, 0, 0.5), xlim = c(0,23),freq=F,
+       xlab = "Time", main = "Time: Human (red) vs. Robot ")
+  plot(h4, col=rgb(0, 1, 0, 0.5),freq=F, xlim = c(0,23), add=TRUE)
+  
+  hist(x2, breaks=10, main="pdf hypothesis: Model-2 vs. Model-1)", xlab="Probability, Model-1", 
+       xlim=c(0,1), col=rgb(1, 0, 0, 0.5), probability = T)
+
+```
+
+
+'ggplot'
+
+```{r model-2-plot2, echo=FALSE, message=FALSE}
+require(ggplot2)
+
+par(mfrow=c(1,1))
+# require(reshape2)
+df_hist <- data.frame(human = p[ p["Parameter"]=="hour_human",]$value[c(n1:n2)],
+                      robot = p[ p["Parameter"]=="hour_robot",]$value[c(n1:n2)])
+ggplot(melt(df_hist), aes(value, fill = variable)) + geom_histogram(position = "dodge",binwidth=1)
+```
+
+```{r model-2-plot3, echo=FALSE, message=FALSE}
+require(ggplot2)
+df_hist <- data.frame(control = p[ p["Parameter"]=="control",]$value[c(n1:n2)],
+                      treatment = p[ p["Parameter"]=="treatment",]$value[c(n1:n2)],
+                      robot = p[ p["Parameter"]=="robot",]$value[c(n1:n2)])
+ggplot(melt(df_hist), aes(value, fill = variable)) + geom_histogram(position = "dodge",binwidth=0.05)
+```
+
+# Conclusion: Model-1 vs. Model-2
+
+```{r model-1-plot3, echo=FALSE, message=FALSE}
+require(ggplot2)
+
+df_hist <- data.frame("Control minus treatment" = p_model_1[p_model_1["Parameter"]=="delta",]$value,
+                      "Human control minus treatment" = p_model_2[ p_model_2["Parameter"]=="delta",]$value)
+ggplot(melt(df_hist), aes(value, fill = variable)) + geom_histogram(position = "dodge",binwidth=0.04)
+``` 
+
+
+

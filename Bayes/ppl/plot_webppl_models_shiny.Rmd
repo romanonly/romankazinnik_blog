@@ -1,0 +1,128 @@
+---
+title: 'Unsupervised Learning with SVI: Banner Example'
+runtime: shiny
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Conversion: Control versus Treatment 
+
+```{r plot-model2-shiny1, echo=FALSE}
+setwd('~/PycharmProjects/tests/webppl/')
+
+fname = "~/PycharmProjects/tests/webppl/Results2/models_banner_p1_p2.Rdata"
+load(fname, verbose = TRUE)
+
+p = p_model_2
+
+n2 = length(p[ p["Parameter"]=="control",]$value); n1 = 1; # MCMC: floor(n2/20)
+
+x = p[ p["Parameter"]=="control",]$value; 
+y = p[ p["Parameter"]=="treatment",]$value;
+z = p[ p["Parameter"]=="robot",]$value;
+
+x1 = p[ p["Parameter"]=="hour_human",]$value[c(n1:n2)]
+y1 = p[ p["Parameter"]=="hour_robot",]$value[c(n1:n2)]
+
+p1 = p_model_1
+
+x0 = p1[ p1["Parameter"]=="control",]$value; 
+y0 = p1[ p1["Parameter"]=="treatment",]$value;
+``` 
+
+### Data
+```{r data-002, echo=FALSE}
+
+print(head(df_banner[, c("hour", "group", "converted")],10))
+
+# [{"city":"austin","state":"texas","time":32.986553211988614,"browser":"firefox","condition":"green","conv# erted":true,"id":"1"},
+```
+
+### Model-1: Conversion probability distribution: Treatment versus Control
+
+```{r plot-model2-shiny3, echo=FALSE}
+inputPanel(
+  selectInput("n_breaks01", label = "Number of bins:",
+              choices = c(5,10, 20, 35, 50), selected = 5),
+  
+  sliderInput("bw_adjust01", label = "Bandwidth adjustment:",
+              min = 0.2, max = 8, value = 4, step = 0.8)
+)
+
+renderPlot({
+  h1=hist(x0, breaks = as.numeric(input$n_breaks01), plot=F)
+  h2=hist(y0, breaks = as.numeric(input$n_breaks01),plot=F)
+
+
+  plot(h1, col=rgb(1, 0, 0, 0.5), xlim = c(0,1),freq=F,
+       xlab = "Converted, Probability", main = "Converted Control (red) vs. Treatment, density ")
+  plot(h2, col=rgb(0, 1, 0, 0.5),freq=F, xlim = c(0,1), add=TRUE)
+
+  
+  dens1 <- density(x0, adjust = input$bw_adjust01)
+  lines(dens1, col = "red")
+  dens2 <- density(y0, adjust = input$bw_adjust01)
+  lines(dens2, col = "green")
+
+})
+```
+
+```{r plot-log-times, echo=FALSE}
+inputPanel(
+  selectInput("n_breaks001", label = "Number of bins:",
+              choices = c(5, 10, 20, 30), selected = 10),
+  
+  sliderInput("bw_adjust", label = "Bandwidth adjustment:",
+              min = 0.2, max = 2, value = 1, step = 0.2)
+)
+
+renderPlot({
+  hist(df_banner$hour, probability = TRUE, breaks = as.numeric(input$n_breaks001),
+       xlab = " Time ", main = "Time", xlim = c(0,24),freq=F, ylim=c(0,0.20))
+  
+  dens <- density(df_banner$hour, adjust = input$bw_adjust)
+  lines(dens, col = "blue")
+})
+```
+
+### Model-2: Conversion probability distribution: Treatment versus Control versus Robot
+
+
+```{r plot-model2-shiny001, echo=FALSE}
+#inputPanel(
+  #selectInput("n_breaks001", label = "Number of bins:",
+  #            choices = c(5,10, 20, 35, 50), selected = 5))
+
+renderPlot({
+  h1=hist(x1, breaks = as.numeric(input$n_breaks001), plot=F)
+  h2=hist(y1, breaks = as.numeric(input$n_breaks001),plot=F)
+
+  plot(h1, col=rgb(1, 0, 0, 0.5), xlim = c(0,24),freq=F,
+       xlab = "Time, Probability", main = " Robot (green) vs. Human (red), density ", ylim=c(0,0.20))
+  plot(h2, col=rgb(0, 1, 0, 0.5),freq=F, xlim = c(0,24), add=TRUE, ylim=c(0,0.20))
+  
+  dens <- density(x1, adjust = input$bw_adjust); lines(dens, col = "red")
+  dens <- density(y1, adjust = input$bw_adjust); lines(dens, col = "green")
+})
+```
+
+
+```{r plot-model2-shiny4, echo=FALSE}
+inputPanel(
+  selectInput("n_breaks0", label = "Number of bins:",
+              choices = c(5,10, 20, 35, 50), selected = 5))
+renderPlot({
+  h1=hist(x, breaks = as.numeric(input$n_breaks0), plot=F)
+  h2=hist(y, breaks = as.numeric(input$n_breaks0),plot=F)
+  h3=hist(z, breaks = as.numeric(input$n_breaks0),plot=F)
+
+  plot(h1, col=rgb(1, 0, 0, 0.5), xlim = c(0,1),freq=F,
+       xlab = "Converted, Probability", main = "Converted: Control (red) vs. Treatment (green) vs. Control, density ")
+  plot(h2, col=rgb(0, 1, 0, 0.5),freq=F, xlim = c(0,1), add=TRUE)
+  plot(h3, col=rgb(0, 0, 1, 0.5),freq=F, xlim = c(0,1), add=TRUE)
+
+})
+```

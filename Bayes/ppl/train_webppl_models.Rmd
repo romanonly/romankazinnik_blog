@@ -1,0 +1,207 @@
+---
+title: "Two Bayesian inference models: supervised and unsupervised"
+# runtime: shiny
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This work demonstrates introducing  **latent** variables learning in Bayesian Networks to overcome the common limitations of frequentist (non-Bayesian p-values) statistics and also Bayesian supervised (non-learning) inference 
+
+
+## Bayesian inference: supervised and unsupervised models
+
+The example shows `data` that has three variables: `converted`, 
+`condition` and `hour`. Each website visitor is presented with either `control` or `treatment`  website banner (`condition` variable),  converted and time spent on the website
+are also known.
+
+```{r load-packages, message=FALSE, echo=FALSE, warning=FALSE, error=FALSE}
+
+library(jsonlite)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(reshape2)
+library(ggpubr)
+library(plyr)
+#require(RJSONIO) 
+library("rwebppl")
+```
+
+```{r load data, echo=FALSE}
+setwd('~/PycharmProjects/tests/webppl/')
+
+fname = '~/PycharmProjects/tests/webppl/Results2/data_banner.Rdata'
+load(fname, verbose = TRUE)
+
+print(str(df_banner))
+print(summary(df_banner))
+```
+
+## Bayesian inference: supervised and unsupervised models
+
+**Evrything that we don't know has probbaility.**
+
+Infere probability of conversion for 'Control' versus 'Treatment' groups and difference **delta** distribution that can be commonly used for confidence interval.
+
+Modeling based on existing variables 'converted' and 'group' shows no statistical 
+signifiance of 'group', confirmed by the frequentist 'p-test'.  
+
+Notuce that variable **time** is continuous and can not be utilized directly for inference.
+Oftenly non-learning **rules-based** used, which has multiple problems in production: hard thresholds, doesn't scale, non-learnt rules.
+
+```{r model-1, echo=FALSE}
+model_1 <- '
+var foreach = function(lst, fn) {
+var foreach_ = function(i) {
+if (i < lst.length) {
+fn(lst[i]);
+foreach_(i + 1);
+}
+};
+foreach_(0);
+};
+
+var model = function() {
+
+var conversionRates = {
+"control":   uniform(0,1), 
+"treatment": uniform(0,1),
+};
+
+foreach(data, function(personData) {
+
+var acceptanceRate = conversionRates[personData.group] 
+
+var converted_data = personData.converted == 1 ? true : false
+observe(Bernoulli({p:acceptanceRate}), converted_data)
+
+});
+
+var ret = {
+"control": conversionRates["control"], 
+"treatment": conversionRates["treatment"], 
+"delta": conversionRates["control"] - conversionRates["treatment"],
+};
+
+return ret
+}
+var numSamples1 = 20000;  
+var inferOpts1 = { method: "MCMC",  samples: numSamples1, burn: numSamples1/2, verbose: true};
+
+var numSamples2 =20000;  
+var inferOpts2 = {
+method: "incrementalMH", samples: numSamples2, burn: numSamples2/2,verbose: true, verboseLag: numSamples2/10}
+
+Infer(inferOpts2, model);
+'
+
+p_model_1 = webppl(model_1, data = df_banner, data_var = "data")
+``` 
+
+```{r model-2, echo=FALSE}
+model_2 <- '
+var foreach = function(lst, fn) {
+    var foreach_ = function(i) {
+        if (i < lst.length) {
+        fn(lst[i]);
+        foreach_(i + 1);
+        }
+    };
+    foreach_(0);
+};
+
+var model = function() {
+
+  // hypothesis for model1-no-Robot vs model2 with Human-Robot
+  var hypothesis = flip(0.5); // initial guess for Model-1 
+
+  // mixture parameter (i.e., percent of human vs robot visitors)
+  var humanRobotBinomProb = uniform(0,1); 
+  
+  // mu-sigma of <logtime spent on the website> for groups convert vs treatment
+  var mu = {
+    "g1": uniform(0., 23.0),   
+    "g2": uniform(0., 10.0),  
+  }
+  var sigmas =  {
+    "g1": uniform(0.0, 12.0),  
+    "g2": uniform(0.0, 12.0),  
+  }
+  
+  // robots do not convert
+  var conversionRatesM1 = {
+    "control":   uniform(0,1), 
+    "treatment": uniform(0,1),
+  };
+
+  // robots do not convert
+  var conversionRates = {
+    "control":   uniform(0,1), 
+    "treatment": uniform(0,1),
+    "robot": uniform(0,1),
+  };
+
+  foreach(data, function(personData,hypothesis) {
+
+        // Human vs. Robot by hour spent on website
+        // Robot visitors have a very DIFFERENT time and conversion probability 
+        var human_robot_group = flip(humanRobotBinomProb) ? "g1" : "g2";
+        
+        var acceptanceRate =  
+                hypothesis ? 
+                conversionRatesM1[personData.group]: 
+                (human_robot_group == "g1") ? conversionRates[personData.group] : conversionRates["robot"]
+
+        // visitors are i.i.d.
+        var hourPerson =  Gaussian({mu: mu[human_robot_group], sigma:sigmas[human_robot_group]})
+        observe(hourPerson, personData.hour)
+        
+        var converted_data = personData.converted == "1" ? true : false
+        observe(Bernoulli({p:acceptanceRate}), converted_data)
+    
+    });
+    
+    var hour_g1 = gaussian({mu: mu["g1"], sigma: sigmas["g1"]})
+    var hour_g2 = gaussian({mu: mu["g2"], sigma: sigmas["g2"]})
+
+  var ret = {
+  "hypothesis": hypothesis,
+  "controlM1": conversionRatesM1["control"], 
+  "treatmentM1": conversionRatesM1["treatment"], 
+  "humanRobotBinomProb": humanRobotBinomProb,
+  "hour_human": hour_g1, 
+  "hour_robot": hour_g2, 
+  "robot": conversionRates["robot"], 
+  "control": conversionRates["control"], 
+  "treatment": conversionRates["treatment"], 
+  "delta": conversionRates["control"] - conversionRates["treatment"],
+  "delta_control_robot": conversionRates["control"] - conversionRates["robot"]
+  };
+  
+  return ret
+}
+var numSamples1 = 1000; 
+var inferOpts1 = { method: "MCMC",  samples: numSamples1, burn: numSamples1/2, verbose: true};
+
+var numSamples2 =100000; // 100000;
+var inferOpts2 = {
+method: "incrementalMH", samples: numSamples2, burn: numSamples2/2,verbose: true, verboseLag: numSamples2/10}
+
+Infer(inferOpts2, model);
+'
+
+p_model_2 = webppl(model_2, data = df_banner, data_var = "data")
+```
+
+
+```{r save-all, echo=FALSE}
+fname1 = "~/PycharmProjects/tests/webppl/models_banner_snaphot_R.Rdata"
+save.image(fname1)
+fname2 = "~/PycharmProjects/tests/webppl/models_banner_p1_p2.Rdata"
+save(p_model_1, p_model_2, df_banner, file=fname2)
+```
+
+
