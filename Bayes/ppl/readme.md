@@ -26,8 +26,12 @@ plot resulting distributions for two models
 interactive plots of distributions for two models
 
 =============
-Countries data
+Countries data: https://github.com/nirupamaprv/Analyze-AB-test-Results 
 =============
+countries.csv
+ab_edited.csv
+
+
 1.1 Countries original data (200Km samples)
 ![Alt text](https://user-images.githubusercontent.com/17115347/52920471-9320fb80-32c1-11e9-9031-5305ffce7061.png?raw=true "Countries data")
 
