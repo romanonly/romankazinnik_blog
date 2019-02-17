@@ -31,13 +31,20 @@ library("rwebppl")
 ```
 
 ```{r load data, echo=FALSE}
-setwd('~/PycharmProjects/tests/webppl/')
+setwd('~/PycharmProjects/tests/webppl/Results2')
 
-fname = '~/PycharmProjects/tests/webppl/Results2/data_banner.Rdata'
+# fname = './data_banner.Rdata'
+fname = './data_banner_countries.Rdata'
+
 load(fname, verbose = TRUE)
 
 print(str(df_banner))
 print(summary(df_banner))
+
+df_countries200 = df_countries[sample(nrow(df_countries), 200), ]
+
+print(str(df_countries200))
+print(summary(df_countries200))
 ```
 
 ## Bayesian inference: supervised and unsupervised models
@@ -99,6 +106,7 @@ Infer(inferOpts2, model);
 '
 
 p_model_1 = webppl(model_1, data = df_banner, data_var = "data")
+p_model_1_countries = webppl(model_1, data = df_countries200, data_var = "data")
 ``` 
 
 ```{r model-2, echo=FALSE}
@@ -194,14 +202,15 @@ Infer(inferOpts2, model);
 '
 
 p_model_2 = webppl(model_2, data = df_banner, data_var = "data")
+p_model_2_countries = webppl(model_2, data = df_countries200, data_var = "data")
 ```
 
 
-```{r save-all, echo=FALSE}
-fname1 = "~/PycharmProjects/tests/webppl/models_banner_snaphot_R.Rdata"
+```{r save-all, echo=TRUE}
+fname1 = "~/PycharmProjects/tests/webppl/Results2/models_banner_countries_snaphot_R.Rdata"
 save.image(fname1)
-fname2 = "~/PycharmProjects/tests/webppl/models_banner_p1_p2.Rdata"
-save(p_model_1, p_model_2, df_banner, file=fname2)
+fname2 = "~/PycharmProjects/tests/webppl/models_banner_countries_p1_p2.Rdata"
+save(p_model_1, p_model_2, p_model_1_countries, p_model_2_countries, df_banner, df_countries200, file=fname2)
 ```
 
 

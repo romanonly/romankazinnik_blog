@@ -11,13 +11,26 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Conversion: Control versus Treatment 
 
 ```{r plot-model2-shiny1, echo=FALSE}
-setwd('~/PycharmProjects/tests/webppl/')
+setwd('~/PycharmProjects/tests/webppl/Results2')
 
-fname = "~/PycharmProjects/tests/webppl/Results2/models_banner_p1_p2.Rdata"
+fname = "./models_banner_countries_p1_p2.Rdata"
 load(fname, verbose = TRUE)
 
-p = p_model_2
+if (TRUE) {
+  # banner models
+  p1 = p_model_1
+  p = p_model_2
+  df = df_banner
+} else {
+  # countries models
+  p1 = p_model_1_countries
+  p = p_model_2_countries
+  df  = df_countries200
+}
+```
 
+
+```{r plot-model2-shiny2, echo=FALSE}
 n2 = length(p[ p["Parameter"]=="control",]$value); n1 = 1; # MCMC: floor(n2/20)
 
 x = p[ p["Parameter"]=="control",]$value; 
@@ -27,8 +40,6 @@ z = p[ p["Parameter"]=="robot",]$value;
 x1 = p[ p["Parameter"]=="hour_human",]$value[c(n1:n2)]
 y1 = p[ p["Parameter"]=="hour_robot",]$value[c(n1:n2)]
 
-p1 = p_model_1
-
 x0 = p1[ p1["Parameter"]=="control",]$value; 
 y0 = p1[ p1["Parameter"]=="treatment",]$value;
 ``` 
@@ -36,39 +47,11 @@ y0 = p1[ p1["Parameter"]=="treatment",]$value;
 ### Data
 ```{r data-002, echo=FALSE}
 
-print(head(df_banner[, c("hour", "group", "converted")],10))
+print(head(df[, c("hour", "group", "converted")],10))
 
 # [{"city":"austin","state":"texas","time":32.986553211988614,"browser":"firefox","condition":"green","conv# erted":true,"id":"1"},
 ```
 
-### Model-1: Conversion probability distribution: Treatment versus Control
-
-```{r plot-model2-shiny3, echo=FALSE}
-inputPanel(
-  selectInput("n_breaks01", label = "Number of bins:",
-              choices = c(5,10, 20, 35, 50), selected = 5),
-  
-  sliderInput("bw_adjust01", label = "Bandwidth adjustment:",
-              min = 0.2, max = 8, value = 4, step = 0.8)
-)
-
-renderPlot({
-  h1=hist(x0, breaks = as.numeric(input$n_breaks01), plot=F)
-  h2=hist(y0, breaks = as.numeric(input$n_breaks01),plot=F)
-
-
-  plot(h1, col=rgb(1, 0, 0, 0.5), xlim = c(0,1),freq=F,
-       xlab = "Converted, Probability", main = "Converted Control (red) vs. Treatment, density ")
-  plot(h2, col=rgb(0, 1, 0, 0.5),freq=F, xlim = c(0,1), add=TRUE)
-
-  
-  dens1 <- density(x0, adjust = input$bw_adjust01)
-  lines(dens1, col = "red")
-  dens2 <- density(y0, adjust = input$bw_adjust01)
-  lines(dens2, col = "green")
-
-})
-```
 
 ```{r plot-log-times, echo=FALSE}
 inputPanel(
@@ -80,10 +63,10 @@ inputPanel(
 )
 
 renderPlot({
-  hist(df_banner$hour, probability = TRUE, breaks = as.numeric(input$n_breaks001),
+  hist(df$hour, probability = TRUE, breaks = as.numeric(input$n_breaks001),
        xlab = " Time ", main = "Time", xlim = c(0,24),freq=F, ylim=c(0,0.20))
   
-  dens <- density(df_banner$hour, adjust = input$bw_adjust)
+  dens <- density(df$hour, adjust = input$bw_adjust)
   lines(dens, col = "blue")
 })
 ```
@@ -120,9 +103,38 @@ renderPlot({
   h3=hist(z, breaks = as.numeric(input$n_breaks0),plot=F)
 
   plot(h1, col=rgb(1, 0, 0, 0.5), xlim = c(0,1),freq=F,
-       xlab = "Converted, Probability", main = "Converted: Control (red) vs. Treatment (green) vs. Control, density ")
+       xlab = "Converted, Probability", main = "Converted: Control (red) vs. Treatment (green) vs. Robot, density ")
   plot(h2, col=rgb(0, 1, 0, 0.5),freq=F, xlim = c(0,1), add=TRUE)
   plot(h3, col=rgb(0, 0, 1, 0.5),freq=F, xlim = c(0,1), add=TRUE)
+
+})
+```
+
+### Model-1: Conversion probability distribution: Treatment versus Control
+
+```{r plot-model2-shiny3, echo=FALSE}
+inputPanel(
+  selectInput("n_breaks01", label = "Number of bins:",
+              choices = c(5,10, 20, 35, 50), selected = 5),
+  
+  sliderInput("bw_adjust01", label = "Bandwidth adjustment:",
+              min = 0.2, max = 8, value = 4, step = 0.8)
+)
+
+renderPlot({
+  h1=hist(x0, breaks = as.numeric(input$n_breaks01), plot=F)
+  h2=hist(y0, breaks = as.numeric(input$n_breaks01),plot=F)
+
+
+  plot(h1, col=rgb(1, 0, 0, 0.5), xlim = c(0,1),freq=F,
+       xlab = "Converted, Probability", main = "Converted Control (red) vs. Treatment, density ")
+  plot(h2, col=rgb(0, 1, 0, 0.5),freq=F, xlim = c(0,1), add=TRUE)
+
+  
+  dens1 <- density(x0, adjust = input$bw_adjust01)
+  lines(dens1, col = "red")
+  dens2 <- density(y0, adjust = input$bw_adjust01)
+  lines(dens2, col = "green")
 
 })
 ```

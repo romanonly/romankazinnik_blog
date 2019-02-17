@@ -31,13 +31,23 @@ library("rwebppl")
 ```
 
 ```{r load data, echo=FALSE}
-setwd('~/PycharmProjects/tests/webppl/')
+setwd('~/PycharmProjects/tests/webppl/Results2')
 
-fname = '~/PycharmProjects/tests/webppl/Results2/models_banner_p1_p2.Rdata'
+fname = './models_banner_countries_p1_p2.Rdata'
 load(fname, verbose = TRUE)
 
-print(str(df_banner))
 print(summary(df_banner))
+print(summary(df_countries200))
+
+# banner data
+if (TRUE) {
+p1 = p_model_1
+p = p_model_2
+} else {
+  # counreiws data
+  p1 = p_model_1_countries
+  p = p_model_2_countries
+}
 ```
 
 ## Bayesian inference: supervised and unsupervised models
@@ -58,16 +68,13 @@ Oftenly non-learning **rules-based** used, which has multiple problems in produc
 Both **p-value** and the convertion probability distributions difference show no evidence of statistical significance for the Control-Treatment condition. 
 
 ```{r model-1-plot, echo=FALSE}
-
-p = p_model_1
-
 n2 = length(p[ p["Parameter"]=="control",]$value); n1 = 1; # MCMC: floor(n2/20)
 
 nb1 = 20
 b1 = 1/nb1*c(0:nb1)
-x = p[ p["Parameter"]=="control",]$value[c(n1:n2)]
-y = p[ p["Parameter"]=="treatment",]$value[c(n1:n2)]
-z = p[ p["Parameter"]=="delta",]$value[c(n1:n2)]
+x = p1[ p1["Parameter"]=="control",]$value[c(n1:n2)]
+y = p1[ p1["Parameter"]=="treatment",]$value[c(n1:n2)]
+z = p1[ p1["Parameter"]=="delta",]$value[c(n1:n2)]
 
 # h1=hist(x, breaks=b1, main="control", xlab="control", probability = T)
 # h2=hist(y, breaks=b1, main="treatment", xlab="treatment", probability = T)
@@ -88,8 +95,8 @@ require(ggplot2)
 require(reshape2)
 
 
-df_hist <- data.frame(control = p[ p["Parameter"]=="control",]$value[c(n1:n2)],
-                      treatment = p[ p["Parameter"]=="treatment",]$value[c(n1:n2)])
+df_hist <- data.frame(control = p1[ p1["Parameter"]=="control",]$value[c(n1:n2)],
+                      treatment = p1[ p1["Parameter"]=="treatment",]$value[c(n1:n2)])
 
 
 ggplot(melt(df_hist), aes(value, fill = variable)) + geom_histogram(position = "dodge",binwidth=0.01) 
@@ -101,7 +108,6 @@ ggplot(melt(df_hist), aes(value, fill = variable)) + geom_histogram(position = "
 Learning a new 'Robot'-'Human' latent variable allows to correrctly identify the significance of the Control-Treatment condition.
 
 ```{r model-2-plot1, echo=FALSE}
-p = p_model_2
 
 n2 = length(p[ p["Parameter"]=="control",]$value); n1 = floor(n2/20)
 par(mfrow=c(2,3))
@@ -127,7 +133,7 @@ par(mfrow=c(2,2))
   h03=hist(z1, breaks = b1,plot=F)
   
   plot(h01, col=rgb(1, 0, 0, 0.5), xlim = c(0,1),freq=F,
-       xlab = "Converted, Probability", main = "Converted: Control (red) vs. Treatment (green) vs. Robot ")
+       xlab = "Converted, Probability", main = "pdf Control(red),Treatment (green),Robot ")
   plot(h02, col=rgb(0, 1, 0, 0.5),freq=F, xlim = c(0,1), add=TRUE)
   plot(h03, col=rgb(0, 0, 1, 0.5),freq=F, xlim = c(0,1), add=TRUE)
   
@@ -136,10 +142,10 @@ par(mfrow=c(2,2))
   h3=hist(x1, breaks = 10, plot=F)
   h4=hist(y1, breaks = 10,plot=F)
   plot(h3, col=rgb(1, 0, 0, 0.5), xlim = c(0,23),freq=F,
-       xlab = "Time", main = "Time: Human (red) vs. Robot ")
+       xlab = "Time", main = "pdf Human (red), Robot ")
   plot(h4, col=rgb(0, 1, 0, 0.5),freq=F, xlim = c(0,23), add=TRUE)
   
-  hist(x2, breaks=10, main="pdf hypothesis: Model-2 vs. Model-1)", xlab="Probability, Model-1", 
+  hist(x2, breaks=10, main="pdf hypothesis: Model-2 vs. Model-1", xlab="Probability, Model-1", 
        xlim=c(0,1), col=rgb(1, 0, 0, 0.5), probability = T)
 
 ```
@@ -170,8 +176,8 @@ ggplot(melt(df_hist), aes(value, fill = variable)) + geom_histogram(position = "
 ```{r model-1-plot3, echo=FALSE, message=FALSE}
 require(ggplot2)
 
-df_hist <- data.frame("Control minus treatment" = p_model_1[p_model_1["Parameter"]=="delta",]$value,
-                      "Human control minus treatment" = p_model_2[ p_model_2["Parameter"]=="delta",]$value)
+df_hist <- data.frame("Control minus treatment" = p1[p1["Parameter"]=="delta",]$value,
+                      "Human control minus treatment" = p[ p["Parameter"]=="delta",]$value)
 ggplot(melt(df_hist), aes(value, fill = variable)) + geom_histogram(position = "dodge",binwidth=0.04)
 ``` 
 
