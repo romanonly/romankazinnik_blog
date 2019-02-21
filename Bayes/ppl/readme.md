@@ -2,6 +2,16 @@ Blog post: https://www.romankazinnik.com/feed/beyond-supervised-machine-learning
 
 Supervised ML can be a powerful tool, however there is a range of problems where its utilization can't be justified. Such problems include reasoning, distributions learning. U til recently solving large-scale problems was limited to Supervised ML. Introduction of deep-learning PyTorch based pyro.ai opens opportunities to apply Unsupervised Learning to large-scale problems.
 
+Stack
+=
+Webppl, Pyro.ai, Python3/R
+
+Problem
+=
+Supervised framework fails to infer statistical signifiance to Treatment v. Control group ('banner' data): linear regression in Bayesian settings produces three distributions (below). Factor distribution of the Treatment vs. Control (right) 95% confidence interval is around "0", which falsely indicates to lack of Treament vs. Control significance.
+
+https://user-images.githubusercontent.com/17115347/53204135-c3c5a580-35df-11e9-9b6d-6a4cf31e6ad7.png
+
 
 Data
 =
