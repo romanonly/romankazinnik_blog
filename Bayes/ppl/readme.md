@@ -10,7 +10,7 @@ Problem
 =
 Supervised framework fails to infer statistical signifiance to Treatment v. Control group ('banner' data): linear regression in Bayesian settings produces three distributions (below). Factor distribution of the Treatment vs. Control (right) 95% confidence interval is around "0", which falsely indicates to lack of Treament vs. Control significance.
 
-https://user-images.githubusercontent.com/17115347/53204135-c3c5a580-35df-11e9-9b6d-6a4cf31e6ad7.png
+![Alt text](https://user-images.githubusercontent.com/17115347/53204135-c3c5a580-35df-11e9-9b6d-6a4cf31e6ad7.png?raw=true "Linear regression with Bayesian inference (Banner data). Three coefficients: time, condition, time-condition")
 
 
 Data
