@@ -4,6 +4,6 @@
 
 2.1 two training examples: small input (<500 words) vs. large input (> 15K words)
 
-2.2 Conclusion 1: notice when [low dimensional] word embedding does not help
+2.2 Experiment 1: lower vs. higher dimensional word embedding 
 
-2.5 Conclusion 2: notice when training for letters embedding does not help
+2.5 Experiment 2: training for letters embedding does 
