@@ -14,3 +14,6 @@ Compile and Run:
 mpicc seidel_mpi.c -o seidel -lm
 
 mpirun -np 2 ./seidel
+
+Notice how the synchronous convergence time is impeded by 5-second wait that I added on the second core. It illustrates that 
+the sync modeling would be as fast as its slowest core. 
