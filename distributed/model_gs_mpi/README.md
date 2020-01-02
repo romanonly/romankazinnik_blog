@@ -1,4 +1,4 @@
-Distributed modeling: synchronous vs. asynchrounous 
+Distributed modeling: synchronous vs. asynchronous 
 
 Sync example 
 Originally published in https://github.com/alexal1/MPI-Gauss-Seidel, I needed to fix some bugs to makes it
