@@ -28,9 +28,9 @@ iterations on each core beweetn the syncronization with the previous neighbourt.
 Ring-reduce helps with extremely large models that do not fit into one core/GPU memory.
 
 Matrix size n = 2000
-eps = 0.1
-Synchronous All-reduce:
-1/0 (sync or async)= 1
 
-Asynchronous star-reduce:
-1/0 (sync or async)= 0
+eps = 0.1
+
+Synchronous All-reduce: 1/0 (sync or async)= 1
+
+Asynchronous star-reduce: 1/0 (sync or async)= 0
