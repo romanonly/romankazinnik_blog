@@ -1,6 +1,6 @@
-Distributed modeling: synchronous vs. asynchronous 
+Distributed modeling: all-reduce vs. ring-reduce 
 
-Sync example 
+All-reduce original example
 Originally published in https://github.com/alexal1/MPI-Gauss-Seidel, I needed to fix some bugs to makes it
 to converge.
 
@@ -15,5 +15,16 @@ mpicc seidel_mpi.c -o seidel -lm
 
 mpirun -np 2 ./seidel
 
-Notice how the synchronous convergence time is impeded by 5-second wait that I added on the second core. It illustrates that 
-the sync modeling would be as fast as its slowest core. 
+Original c-file: seidel_mpi_v0.c
+
+Notice how all-reduce needs to compute all the model parameters, by that requires a full copy of the model on each core. 
+All-reduce will take advantage of mmultiple cores by using partial sums at each core and call all-reduce to compute the sums. 
+
+Ring-reduce will compute only a portion of the model parameters. Essentially, it will synchronize model parameters only to the previous core. As a result, for block diagonal matrix ring-reduce will need to store only a small portion of the model.
+
+'No free lunch' for ring-reduce means a longer convergence times and fine-tuning of several more parameters, such as number of
+iterations on each core beweetn the syncronization with the previous neighbourt. 
+
+Ring-reduce helps with extremely large models that do not fit into one core/GPU memory.
+
+
