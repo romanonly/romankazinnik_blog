@@ -62,15 +62,16 @@ int main(int agrc, char* argv[])
 	return(0);
 }
 
+void mpi_process_sync(double eps, double t1, int n, double *prev_x, double **C, double **A, double * f);
+void mpi_process_async(double eps, double t1, int n, double *prev_x, double *curr_x, double **C, double **A, double * f);
+
 void Process(int n, double eps, double t1)
 {
-    double t2;
-    int i, j, counter = 0;
+    int i, j;
     double *a, *b, *c, *f, *p;
-    double *prev_x;
+    double *prev_x, *curr_x;
     double **A, **C;
-    double norm;
-    double ProcSum, TotalSum;
+    
 
 
     a = (double*)malloc((n+1)*sizeof(double));
@@ -80,6 +81,7 @@ void Process(int n, double eps, double t1)
     p = (double*)malloc((n+1)*sizeof(double));
 
     prev_x = (double*)malloc((n+1)*sizeof(double));
+    curr_x = (double*)malloc((n+1)*sizeof(double));
 
     A = (double**)malloc((n+1)*sizeof(double*));
     for (i = 0; i <= n; ++i)
@@ -133,12 +135,27 @@ void Process(int n, double eps, double t1)
         }
     }
 
-	//На каждом процессе будет вычисляться частичная сумма длиной k
-	int k = (n+1) / ProcNum;
-	//То есть будут суммироваться только те элементы, которые лежат между i1 и i2
-	int i1 = k * ProcRank;
-	int i2 = k * (ProcRank + 1);
-	if (ProcRank == ProcNum - 1) i2 = n+1;
+    if (1)
+        return mpi_process_sync(eps, t1, n, prev_x, C, A, f);
+    else
+        return mpi_process_async(eps, t1, n, prev_x, curr_x, C, A, f);
+}
+        
+int print_mpi_log(double eps, double t1, int counter, double *prev_x, double *x, int n, double **A, double *f);
+
+void mpi_process_sync(double eps, double t1, int n, double *prev_x, double **C, double **A, double * f)
+{
+    int counter = 0;
+    int i, j;
+    double ProcSum, TotalSum;
+    
+
+    //На каждом процессе будет вычисляться частичная сумма длиной k
+    int k = (n+1) / ProcNum;
+    //То есть будут суммироваться только те элементы, которые лежат между i1 и i2
+    int i1 = k * ProcRank;
+    int i2 = k * (ProcRank + 1);
+    if (ProcRank == ProcNum - 1) i2 = n+1;
 
     if (ProcRank == 0) printf("Calculating started\n\n");
 
@@ -152,39 +169,114 @@ void Process(int n, double eps, double t1)
 
             for (j = 0; j < i; j++)
                 if ((i1 <= j) && (j < i2))
-			         ProcSum += C[i][j]*x[j];
+                     ProcSum += C[i][j]*x[j];
 
             for (j = i; j <= n; j++)
                 if ((i1 <= j) && (j < i2))
-			         ProcSum += C[i][j]*prev_x[j];
+                     ProcSum += C[i][j]*prev_x[j];
 
-    		TotalSum = 0.0;
+            TotalSum = 0.0;
 
-    		//Сборка частичных сумм ProcSum на процессе с рангом 0
-            if true {
-                MPI_Reduce(&ProcSum, &TotalSum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-                MPI_Bcast(&TotalSum, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-                x[i] = TotalSum + f[i]/A[i][i];
-            }
-            else {
-                MPI_Request request;
-                nProcSum[i] = ProcSum;
-                nTotalSum[i] = 0.0;
+            //Сборка частичных сумм ProcSum на процессе с рангом 0
+            MPI_Reduce(&ProcSum, &TotalSum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+            MPI_Bcast(&TotalSum, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+            x[i] = TotalSum + f[i]/A[i][i];
+        }
+        counter++;
+        if (-1==print_mpi_log(eps, t1, counter, prev_x, x, n, A, f))
+            return;
+    } // end while
+}
 
-                MPI_Ireduce(&ProcSum, &TotalSum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD, &request);
-                // Wait for the MPI_Ireduce to complete
-                MPI_Wait(&request, MPI_STATUS_IGNORE);
+void mpi_process_async(double eps, double t1, int n, double *prev_x, double *curr_x, double **C, double **A, double * f)
+{
+    int counter = 0;
+    int i, j;
+    double ProcSum, TotalSum;
+    int tag=1;
 
-                MPI_Bcast(&TotalSum, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	//На каждом процессе будет вычисляться частичная сумма длиной k
+	int k = (n+1) / ProcNum;
+	//То есть будут суммироваться только те элементы, которые лежат между i1 и i2
+	int i1 = k * ProcRank;
+	int i2 = k * (ProcRank + 1);
+	if (ProcRank == ProcNum - 1) i2 = n+1;
 
-                //MPI_Request requestIb;
-                // Copy TotalSum for async computation
-                //ProcSum = TotalSum;
-                //MPI_Ibcast(&ProcSum, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD,&requestIb);
-                x[i] = TotalSum + f[i]/A[i][i];
-            }
+
+    // take from previous
+    int ProcRankPrev = ProcRank-1;
+    if (ProcRankPrev < 0) ProcRankPrev = ProcNum-1;
+    int i1_prev = k * ProcRankPrev;
+    int i2_prev = k * (ProcRankPrev + 1);
+    if (ProcRankPrev == ProcNum - 1) i2_prev = n+1;
+    // send to next
+    int ProcRankNext = ProcRank+1;
+    if (ProcRankNext == ProcNum) ProcRankNext = 0;
+
+
+    if (ProcRank == 0) printf("Calculating started\n\n");
+
+    //Собственно расчет
+        for (i = 0; i <= n; i++)
+           curr_x[i] = x[i];
+
+    while(1) {
+
+        for (i = 0; i <= n; i++)
+           prev_x[i] = curr_x[i];
+
+
+        //for (i = 0; i <= n; i++) {
+        for (i = i1; i < i2; i++) {
+            ProcSum = 0.0;
+
+            for (j = 0; j < i; j++)
+                     ProcSum += C[i][j]*curr_x[j];
+
+            for (j = i; j <= n; j++)
+                     ProcSum += C[i][j]*prev_x[j];
+
+            curr_x[i] = ProcSum + f[i]/A[i][i];            
         }
 
+
+        MPI_Status status;
+        // Send to next Process: k+1
+        // take from Previous Process: k-1
+        // Compute current Process: k
+        if (1) {
+            //    int token;
+            int world_rank = ProcRank;
+            //int world_size = ProcNum;
+            if (world_rank != 0) {
+                //MPI_Recv(&token, 1, MPI_INT, world_rank - 1, 0,MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Recv (&(curr_x[i1_prev]),i2_prev - i1_prev,MPI_INT, ProcRankPrev,tag,MPI_COMM_WORLD,MPI_STATUS_IGNORE);//&status);
+                //printf("Process %d received token %f from process %d\n", world_rank, curr_x[i1_prev], world_rank - 1);
+            } 
+            //MPI_Send(&token, 1, MPI_INT, (world_rank + 1) % world_size,0, MPI_COMM_WORLD);
+            MPI_Send(&(curr_x[i1]),i2 - i1,MPI_INT,ProcRankNext,tag,MPI_COMM_WORLD);
+
+            // Now process 0 can receive from the last process.
+            if (world_rank == 0) {
+                //MPI_Recv(&token, 1, MPI_INT, world_size - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Recv (&(curr_x[i1_prev]),i2_prev - i1_prev,MPI_INT, ProcRankPrev,tag,MPI_COMM_WORLD,MPI_STATUS_IGNORE);//&status);
+                //printf("Process %d received token %f from process %d\n", world_rank, curr_x[i1_prev], world_size - 1);
+            }
+        }
+        
+
+        counter++;
+
+        if (-1==print_mpi_log(eps, t1, counter, prev_x, curr_x, n, A, f))
+            return;
+    } // end while
+}
+
+int print_mpi_log(double eps, double t1, int counter, double *prev_x, double *x, int n, double **A, double *f)
+{
+    double norm=0;
+    int i, j;    
+    double t2;
         //Считаем невязку
 	if (ProcRank == 0) {
         	norm = 0;
@@ -202,7 +294,6 @@ void Process(int n, double eps, double t1)
             }
 
 
-        	counter++;
 	        if (counter % 10 == 0) {
                //sleep(10);
                t2 = MPI_Wtime();
@@ -210,22 +301,23 @@ void Process(int n, double eps, double t1)
             }
 	}
     if (ProcRank == 1) {
-            counter++;
             if (counter % 10 == 0) {
-               sleep(5);
+               //sleep(5);
                t2 = MPI_Wtime();
                printf("ProcRank=%d counter=%2d. %1.2f(seconds) \n", ProcRank, counter, t2-t1);fflush(stdout);
             }        
     }
 
-    MPI_Request request;
     MPI_Bcast(&norm, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    //MPI_Request request;
     //MPI_Ibcast(&norm, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD,&request);
 
-        if (norm < eps) {
-            if (ProcRank == 0) 
-                printf("%2d.   %lf\n", counter, norm);
-            return;
-        }
+    if (norm < eps) {
+        if (ProcRank == 0) 
+            printf("%2d.   %lf\n", counter, norm);
+        else //if (ProcRank == 0) 
+            printf(" exit process ProcRank=%2d.\n", ProcRank);        
+        return -1;
     }
+    return 1;
 }
