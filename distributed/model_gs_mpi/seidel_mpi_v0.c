@@ -6,23 +6,14 @@
 
 /* Решение системы методом Гаусса-Зейделя */
 
-// error must decrease within counter_tolerate
-const int max_counter = 1000, counter_tolerate = 3;
-//local solver GS iterations
-const int local_solver_num = 10;
-
-double analytc_err[max_counter];
-
 double *x;
 int ProcNum; //Количество процессов
 int ProcRank; //Ранг процесса
-
-void Process(int, double,double,int);
-
+void Process(int, double,double);
 int main(int agrc, char* argv[])
 {
     double t1;
-    int n, i, is_sync;
+    	int n, i;
 	double eps;
 	FILE *Out;
 
@@ -40,15 +31,11 @@ int main(int agrc, char* argv[])
 		if (scanf("%d", &n) > 0) printf("OK\n");
 		printf("eps = ");
 		if (scanf("%lf", &eps) > 0) printf("OK\n");
-        printf("1/0 (sync or async)= ");
-        if (scanf("%d", &is_sync) > 0) printf("OK\n");
-
 		printf("\n");
 	}
 	//Рассылаем полученные значения всем процессам
 	MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&eps, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&is_sync, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&eps, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
 	x = (double*)malloc((n+1)*sizeof(double));
 
@@ -56,7 +43,7 @@ int main(int agrc, char* argv[])
 	for (i = 0; i <= n; i++)
 		x[i] = 0;
 
-	Process(n, eps, t1, is_sync);
+	Process(n, eps, t1);
 
 	//Запись в файл
 	if (ProcRank == 0) {
@@ -78,14 +65,14 @@ int main(int agrc, char* argv[])
 void mpi_process_sync(double eps, double t1, int n, double *prev_x, double **C, double **A, double * f);
 void mpi_process_async(double eps, double t1, int n, double *prev_x, double *curr_x, double **C, double **A, double * f);
 
-void Process(int n, double eps, double t1, int is_sync)
+void Process(int n, double eps, double t1)
 {
     int i, j;
     double *a, *b, *c, *f, *p;
     double *prev_x, *curr_x;
     double **A, **C;
     
-    // Create matrix system
+
 
     a = (double*)malloc((n+1)*sizeof(double));
     b = (double*)malloc((n+1)*sizeof(double));
@@ -148,8 +135,7 @@ void Process(int n, double eps, double t1, int is_sync)
         }
     }
 
-    // run solver 
-    if (is_sync)
+    if (1)
         return mpi_process_sync(eps, t1, n, prev_x, C, A, f);
     else
         return mpi_process_async(eps, t1, n, prev_x, curr_x, C, A, f);
@@ -171,7 +157,7 @@ void mpi_process_sync(double eps, double t1, int n, double *prev_x, double **C, 
     int i2 = k * (ProcRank + 1);
     if (ProcRank == ProcNum - 1) i2 = n+1;
 
-    printf("Sync Calculating started: %d \n\n", ProcRank);
+    if (ProcRank == 0) printf("Calculating started\n\n");
 
     //Собственно расчет
     while(1) {
@@ -193,14 +179,10 @@ void mpi_process_sync(double eps, double t1, int n, double *prev_x, double **C, 
 
             //Сборка частичных сумм ProcSum на процессе с рангом 0
             MPI_Reduce(&ProcSum, &TotalSum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-            
             MPI_Bcast(&TotalSum, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-            
             x[i] = TotalSum + f[i]/A[i][i];
         }
-
         counter++;
-
         if (-1==print_mpi_log(eps, t1, counter, prev_x, x, n, A, f))
             return;
     } // end while
@@ -208,9 +190,8 @@ void mpi_process_sync(double eps, double t1, int n, double *prev_x, double **C, 
 
 void mpi_process_async(double eps, double t1, int n, double *prev_x, double *curr_x, double **C, double **A, double * f)
 {
-    double eps1;
     int counter = 0;
-    int i, j, ii;
+    int i, j;
     double ProcSum, TotalSum;
     int tag=1;
 
@@ -228,76 +209,66 @@ void mpi_process_async(double eps, double t1, int n, double *prev_x, double *cur
     int i1_prev = k * ProcRankPrev;
     int i2_prev = k * (ProcRankPrev + 1);
     if (ProcRankPrev == ProcNum - 1) i2_prev = n+1;
-
     // send to next
     int ProcRankNext = ProcRank+1;
     if (ProcRankNext == ProcNum) ProcRankNext = 0;
 
 
-    printf("Async Calculating started: %d \n\n", ProcRank);
+    if (ProcRank == 0) printf("Calculating started\n\n");
 
     //Собственно расчет
+        for (i = 0; i <= n; i++)
+           curr_x[i] = x[i];
 
-    for (i = 0; i <= n; i++)
-       curr_x[i] = x[i];
-
-
-    // Update only i1 .. i2 unknowns and ring-reduce
     while(1) {
 
         for (i = 0; i <= n; i++)
            prev_x[i] = curr_x[i];
 
-        // inner loop for local convergence
-       for (ii=0; ii<local_solver_num; ii++) {
 
-            eps1 = 0.; // inner solver convergence epsilon
+        //for (i = 0; i <= n; i++) {
+        for (i = i1; i < i2; i++) {
+            ProcSum = 0.0;
 
-            for (i = i1; i < i2; i++) {
-                ProcSum = 0.0;
+            for (j = 0; j < i; j++)
+                     ProcSum += C[i][j]*curr_x[j];
 
-                for (j = 0; j < i; j++)
-                         ProcSum += C[i][j]*curr_x[j];
+            for (j = i; j <= n; j++)
+                     ProcSum += C[i][j]*prev_x[j];
 
-                for (j = i; j <= n; j++)
-                         ProcSum += C[i][j]*prev_x[j];
-
-                curr_x[i] = ProcSum + f[i]/A[i][i];      
-                eps1 += fabs(curr_x[i] - prev_x[i]);
-            }
-            if (eps1 < eps) 
-                break;
-            else {
-                for (i = i1; i < i2; i++)
-                   prev_x[i] = curr_x[i];
-            }
+            curr_x[i] = ProcSum + f[i]/A[i][i];            
         }
-        if ((ProcRank == 0) && (counter % 10 == 0))
-            printf("\n inner solver eps=%f with %d-th iteration\n", eps1, ii);
 
-        // Compute current Process
-        // Send to next Process
-        // take from Previous Process
 
         MPI_Status status;
+        // Send to next Process: k+1
+        // take from Previous Process: k-1
+        // Compute current Process: k
+        if (1) {
+            //    int token;
+            int world_rank = ProcRank;
+            //int world_size = ProcNum;
+            if (world_rank != 0) {
+                //MPI_Recv(&token, 1, MPI_INT, world_rank - 1, 0,MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Recv (&(curr_x[i1_prev]),i2_prev - i1_prev,MPI_INT, ProcRankPrev,tag,MPI_COMM_WORLD,MPI_STATUS_IGNORE);//&status);
+                //printf("Process %d received token %f from process %d\n", world_rank, curr_x[i1_prev], world_rank - 1);
+            } 
+            //MPI_Send(&token, 1, MPI_INT, (world_rank + 1) % world_size,0, MPI_COMM_WORLD);
+            MPI_Send(&(curr_x[i1]),i2 - i1,MPI_INT,ProcRankNext,tag,MPI_COMM_WORLD);
 
-        if (ProcRank != 0) 
-            MPI_Recv (&(curr_x[i1_prev]),i2_prev - i1_prev,MPI_INT, ProcRankPrev,tag,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-
-        MPI_Send(&(curr_x[i1]),i2 - i1,MPI_INT,ProcRankNext,tag,MPI_COMM_WORLD);
-
-        // Now process 0 can receive from the last process.
-        if (ProcRank == 0) 
-            MPI_Recv (&(curr_x[i1_prev]),i2_prev - i1_prev,MPI_INT, ProcRankPrev,tag,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+            // Now process 0 can receive from the last process.
+            if (world_rank == 0) {
+                //MPI_Recv(&token, 1, MPI_INT, world_size - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                MPI_Recv (&(curr_x[i1_prev]),i2_prev - i1_prev,MPI_INT, ProcRankPrev,tag,MPI_COMM_WORLD,MPI_STATUS_IGNORE);//&status);
+                //printf("Process %d received token %f from process %d\n", world_rank, curr_x[i1_prev], world_size - 1);
+            }
+        }
         
+
         counter++;
 
-        if (-1==print_mpi_log(eps, t1, counter, prev_x, curr_x, n, A, f)) {           
-            if (ProcRank == 0) // send local solution to global x
-                for (i = 0; i <= n; i++)
-                   x[i] = curr_x[i];                
+        if (-1==print_mpi_log(eps, t1, counter, prev_x, curr_x, n, A, f))
             return;
-        }
     } // end while
 }
 
@@ -324,23 +295,26 @@ int print_mpi_log(double eps, double t1, int counter, double *prev_x, double *x,
 
 
 	        if (counter % 10 == 0) {
-               //sleep(1);
+               //sleep(10);
                t2 = MPI_Wtime();
         	   printf("counter=%2d.   norm=%lf analytical error=%lf %1.2f(seconds) \n", counter, norm, err_axf, t2-t1);fflush(stdout);
             }
-
-            norm = fmax(norm, err_axf);
-            analytc_err[counter] = err_axf;
-            // quit when error increases
-            if (counter > counter_tolerate && analytc_err[counter]>analytc_err[counter-counter_tolerate])
-                norm = 0.;
 	}
+    if (ProcRank == 1) {
+            if (counter % 10 == 0) {
+               //sleep(5);
+               t2 = MPI_Wtime();
+               printf("ProcRank=%d counter=%2d. %1.2f(seconds) \n", ProcRank, counter, t2-t1);fflush(stdout);
+            }        
+    }
 
     MPI_Bcast(&norm, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    //MPI_Request request;
+    //MPI_Ibcast(&norm, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD,&request);
 
-    if (norm < eps || counter > max_counter) {
+    if (norm < eps) {
         if (ProcRank == 0) 
-            printf("counyter=%2d.   norm=%lf analytical error=%lf \n", counter, norm, analytc_err[counter]);
+            printf("%2d.   %lf\n", counter, norm);
         else //if (ProcRank == 0) 
             printf(" exit process ProcRank=%2d.\n", ProcRank);        
         return -1;
