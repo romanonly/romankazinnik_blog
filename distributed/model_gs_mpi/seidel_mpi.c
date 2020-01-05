@@ -192,8 +192,10 @@ void mpi_process_sync(double eps, double t1, int n, double *prev_x, double **C, 
             TotalSum = 0.0;
 
             //Сборка частичных сумм ProcSum на процессе с рангом 0
+
+            // All reduce from all nodes into node 0
             MPI_Reduce(&ProcSum, &TotalSum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-            
+            // Update all nodes from node 0             
             MPI_Bcast(&TotalSum, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
             
             x[i] = TotalSum + f[i]/A[i][i];
@@ -245,6 +247,7 @@ void mpi_process_async(double eps, double t1, int n, double *prev_x, double *cur
     // Update only i1 .. i2 unknowns and ring-reduce
     while(1) {
 
+        MPI_Status status;
         for (i = 0; i <= n; i++)
            prev_x[i] = curr_x[i];
 
@@ -257,12 +260,13 @@ void mpi_process_async(double eps, double t1, int n, double *prev_x, double *cur
                 ProcSum = 0.0;
 
                 for (j = 0; j < i; j++)
-                         ProcSum += C[i][j]*curr_x[j];
+                       ProcSum += C[i][j]*curr_x[j];
 
                 for (j = i; j <= n; j++)
                          ProcSum += C[i][j]*prev_x[j];
 
                 curr_x[i] = ProcSum + f[i]/A[i][i];      
+
                 eps1 += fabs(curr_x[i] - prev_x[i]);
             }
             if (eps1 < eps) 
@@ -273,19 +277,16 @@ void mpi_process_async(double eps, double t1, int n, double *prev_x, double *cur
             }
         }
         if ((ProcRank == 0) && (counter % 10 == 0))
-            printf("\n inner solver eps=%f with %d-th iteration\n", eps1, ii);
+            ;//printf("\n inner solver eps=%f with %d-th iteration\n", eps1, ii);
 
         // Compute current Process
         // Send to next Process
         // take from Previous Process
 
-        MPI_Status status;
-
+        // Process 0 can not be blocked initially
         if (ProcRank != 0) 
             MPI_Recv (&(curr_x[i1_prev]),i2_prev - i1_prev,MPI_INT, ProcRankPrev,tag,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-
         MPI_Send(&(curr_x[i1]),i2 - i1,MPI_INT,ProcRankNext,tag,MPI_COMM_WORLD);
-
         // Now process 0 can receive from the last process.
         if (ProcRank == 0) 
             MPI_Recv (&(curr_x[i1_prev]),i2_prev - i1_prev,MPI_INT, ProcRankPrev,tag,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
@@ -314,19 +315,21 @@ int print_mpi_log(double eps, double t1, int counter, double *prev_x, double *x,
         	norm = sqrt(norm);
 
             // abs(AX - f)
-            double err_axf = 0, sum_ax;
+            double err_axf = 0, norm_f = 0., sum_ax;
             for (i = 0; i <= n; i++) {
                 sum_ax = 0.;
                 for (j = 0; j <= n; j++) 
-                    sum_ax += A[i][j]*prev_x[j];
+                    sum_ax += A[i][j]*x[j];
                 err_axf += fabs(sum_ax-f[i]);
+                norm_f += fabs(f[i]);
             }
-
+            err_axf /= norm_f;
 
 	        if (counter % 10 == 0) {
                //sleep(1);
                t2 = MPI_Wtime();
-        	   printf("counter=%2d.   norm=%lf analytical error=%lf %1.2f(seconds) \n", counter, norm, err_axf, t2-t1);fflush(stdout);
+               // printf("counter=%2d.   norm=%lf analytical error=%lf %1.2f(seconds) \n", counter, norm, err_axf, t2-t1);fflush(stdout);
+               printf("counter=%2d.   analytical error=%lf %1.2f (seconds) \n", counter, err_axf, t2-t1);fflush(stdout);
             }
 
             norm = fmax(norm, err_axf);
