@@ -22,7 +22,7 @@ def script_path(filename):
     return os.path.join(filepath, filename)
 
 
-class RK002StatsFlow(FlowSpec):
+class RK004StatsFlow(FlowSpec):
     """
     A flow to generate some statistics about the movie genres.
 
@@ -37,11 +37,29 @@ class RK002StatsFlow(FlowSpec):
     # movie_data = IncludeFile("movie_data",
     #                         help="The path to portfolios metadata file.",
     #                         default=script_path('interview_challenge_all.pkl')) # 'movies.csv'))
-    alpha = Parameter(
-        "alpha",
+    nhyper = Parameter(
+        "nhyper",
         help="Number of branches for hyper-parameter runs.",
         type=int,
         default=3,
+    )
+    nfeatures = Parameter(
+        "nfeatures",
+        help="Number of top features to select.",
+        type=int,
+        default=10,
+    )
+    nbackward = Parameter(
+        "nbackward",
+        help="Number of time-steps backward used in modeling.",
+        type=int,
+        default=5,
+    )
+    epochs = Parameter(
+        "epochs",
+        help="Number of time-steps backward used in modeling.",
+        type=int,
+        default=100,
     )
 
     @step
@@ -63,9 +81,9 @@ class RK002StatsFlow(FlowSpec):
         model_name = "best_model_1_PP_001.h5"
         y_name = "y_1day_future_price_change_pct"
         # x5  # length of sequences in LSTM
-        Nt_backward = 5 # 10
+        Nt_backward = self.nbackward # 5 # 10
         # 5  # 10  # number of features for each x_t datapoint in LSTM
-        Num_features = 5 # 10
+        Num_features = self.nfeatures # 5 # 10
         # 1-1000 training for portfolios not independently may improve prediction
         Num_portfolios = 1
         # remove high redundant correlated features
@@ -85,9 +103,9 @@ class RK002StatsFlow(FlowSpec):
         self.y_label = y_label
         self.model_name = model_name
 
-        # self.dataframe = np.ones(int(self.alpha))   # pandas.read_csv(StringIO(self.movie_data))
+        # self.dataframe = np.ones(int(self.nhyper))   # pandas.read_csv(StringIO(self.movie_data))
         self.genres = list(
-            100 * np.array(range(1, self.alpha + 1))
+            5 * np.array(range(1, self.nhyper + 1))
         )  # list([100,200])
 
         # We want to compute some statistics for each genre. The 'foreach'
@@ -112,16 +130,17 @@ class RK002StatsFlow(FlowSpec):
         # 0.01  # regularisation
         regul_eps = 0.02
         # lstm neaurons, can be also X.shape[2]
-        N1_LSTM = 10
+        N1_LSTM = self.genre  # 10
         N2_LSTM = math.floor(N1_LSTM / 2)
-        patience = 2000
+        patience = 100
         # epochs = 30  # 3000
         # validate for latest time-series points
         n_test_ratio = 0.10
 
         x_train = self.x_train
         y_label = self.y_label
-        epochs = self.genre
+        epochs = self.epochs  # 100
+
         model_name = ("branch_%d_" % self.genre) + self.model_name
         (
             X_train1,
@@ -172,26 +191,19 @@ class RK002StatsFlow(FlowSpec):
 
         """
         # Merge results from the genre specific computations.
-        if False:
-            self.genre_stats = {
-                inp.genre.lower(): {
-                    "quartiles": inp.quartiles,
-                    "dataframe": inp.dataframe,
-                }
-                for inp in inputs
+        self.model_stats = {
+            inp.genre: {
+                "train_auc": inp.train_auc,
+                "test_auc": inp.test_auc,
+                "history_auc": inp.history_auc,
+                "history_loss": inp.history_loss,
+                "history_val_loss": inp.history_val_loss,
+                "model_name": inp.model_name,
+#                "nfeatures": self.nfeatures,
+#                "nbackward": self.nbackward
             }
-        else:
-            self.genre_stats = {
-                inp.genre: {
-                    "train_auc": inp.train_auc,
-                    "test_auc": inp.test_auc,
-                    "history_auc": inp.history_auc,
-                    "history_loss": inp.history_loss,
-                    "history_val_loss": inp.history_val_loss,
-                    "model_name": inp.model_name,
-                }
-                for inp in inputs
-            }
+            for inp in inputs
+        }
 
         self.next(self.end)
 
@@ -205,4 +217,4 @@ class RK002StatsFlow(FlowSpec):
 
 
 if __name__ == "__main__":
-    RK002StatsFlow()
+    RK004StatsFlow()
