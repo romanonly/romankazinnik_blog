@@ -1,22 +1,23 @@
-# Build hyper-parameter search with Metaflow.
+# Episode 02-statistics: Is this Data Science?
 
-**This flow loads a CSV file, select best features based on basic correlation analysis, 
-runs mutluple models trainig as Metaflow branches.Metaflow versions all its runs, 
-one can view all the historical runs with the Metaflow client in a Notebook
-(see other Metaflow tutrial examples).**
+**Use metaflow to load the movie metadata CSV file into a Pandas Dataframe and
+compute some movie genre specific statistics. These statistics are then used in
+later examples to improve our playlist generator. You can optionally use the
+Metaflow client to eyeball the results in a Notebook, and make some simple
+plots using the Matplotlib library.**
 
 #### Showcasing:
-- Including external files with 'IncludeFile'.
-- Basic Metaflow Parameters.
-- Running workflow branches in parallel and joining results.
-- Using the Metaflow client in a Notebook.
+- Fan-out over a set of parameters using Metaflow foreach.
+- Using external packages like Pandas.
+- Plotting results in a Notebook.
 
-#### Install:
-1. ```python -m pip install notebook```
+#### Before playing this episode:
+1. ```python -m pip install pandas```
+2. ```python -m pip install notebook```
+3. ```python -m pip install matplotlib```
 
-#### Run:
-1. ```cd metaflow-folder```
-2. ```python rk/search.py show```
-3. ```python rk/search.py run```
-4. ```python rk/search.py run --alpha 5```
-5. ```jupyter-notebook rk/search.ipynb```
+#### To play this episode:
+1. ```cd metaflow-tutorials```
+2. ```python 02-statistics/stats.py show```
+3. ```python 02-statistics/stats.py run```
+4. ```jupyter-notebook 02-statistics/stats.ipynb```

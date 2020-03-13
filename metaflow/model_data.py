@@ -5,6 +5,7 @@ import copy
 
 from sklearn import preprocessing
 
+from model_data_symbols import time_series_csv_to_lstm_input
 
 def vec_cos(x, y):
     """ cosine similarity vectors c and y"""
@@ -104,8 +105,8 @@ def train_labels(d, ybin, list_portfolios, symbols, top_features, Nt_backward):
 def read_data(is_use_pkl=False):
     """ read csv files, sort by datetime, rank features"""
     if is_use_pkl == False:
-        d1 = pd.read_csv("interview_challenge.csv")
-        d2 = pd.read_csv("interview_challenge_2.csv")
+        d1 = pd.read_csv("data/interview_challenge.csv")
+        d2 = pd.read_csv("data/interview_challenge_2.csv")
 
         # small
         d1["date"] = pd.to_datetime(d1.date)
@@ -140,17 +141,17 @@ def read_data(is_use_pkl=False):
             print(indf1, f1, max_cos_xy)
             arr_f_maxcos.append((f1, max_cos_xy))
 
-        with open(".\interview_challenge_all.pkl", "wb") as file_obj:
+        with open("data/interview_challenge_all.pkl", "wb") as file_obj:
             cPickle.dump([d1, d2, arr_f_maxcos, f_names], file_obj)
 
     objects = []
-    with (open("interview_challenge_all.pkl", "rb")) as openfile:
+    with (open("data/interview_challenge_all.pkl", "rb")) as openfile:
         while True:
             try:
                 objects.append(cPickle.load(openfile))
             except EOFError:
                 break
-    d1 = objects[0][0] # small
+    d1 = objects[0][0]  # small
     d2 = objects[0][1]
     arr_f_maxcos = objects[0][2]
     f_names = objects[0][3]
@@ -159,40 +160,8 @@ def read_data(is_use_pkl=False):
     return d1, arr_f_maxcos, f_names
 
 
-def save_train_data_csv(
-    d,
-    top_f_names,
-    ybin,
-    list_portfolios,
-    symbols,
-    f_names,
-    y_name,
-    csv_num_PP=1,
-    csv_num_features=10,
-):
-    csv_top_features = select_top_features(
-        d, top_f_names, ybin, list_portfolios, symbols, Num_features=csv_num_features
-    )
-    csv_fname = "f" + str(csv_num_features) + "_PP" + str(csv_num_PP) + ".csv"
-
-    # P1 = symbols[10]
-    csv_d = d[f_names[:-2] + ["date", "symbol"] + [y_name]]
-    csv_d2 = csv_d[csv_d["symbol"] == symbols[0]]
-    csv_d3 = csv_d2.apply(
-        lambda x: (x > 0.0).astype(int) if x.name in [y_name] else x, axis=0
-    )
-    print("csv_d3.shape=", csv_d3.shape)
-    csv_d3.to_csv("sym1_187features.csv")
-
-    fcsv_d = d[csv_top_features + ["date", "symbol"] + [y_name]]
-    fcsv_d2 = fcsv_d[fcsv_d["symbol"].isin(list(np.unique(symbols)[-csv_num_PP:]))]
-    fcsv_d3 = fcsv_d2.apply(
-        lambda x: (x > 0.0).astype(int) if x.name in [y_name] else x, axis=0
-    )
-    print("csv_d3_top_features.shape=", fcsv_d3.shape)
-    fcsv_d3.to_csv(csv_fname)
-
-    d_date_pp = d[["date", "symbol", y_name]]
+def create_pp_time_series(y_name, fcsv_d, d_date_pp):
+    """create save P1...P15 and targets P1_1day_ahead, P1_2days_ahead"""
     # ddate = pd.unique(d_date_pp.date)
     pp = pd.unique(d_date_pp.symbol)
     # d3 = pd.DataFrame(columns=['date'] + list(pp))
@@ -215,17 +184,64 @@ def save_train_data_csv(
     d01["P1_2d"] = vals_p0[2:]
     ybin = (d01["P1"].values > 0).astype(int)
     d01["P1_sign"] = ybin
-    d01.to_csv("symbols_hiplot.csv")
+    targets = ["P1_1d", "P1_2d", "P1_sign"]
+    return d01, pp, targets
+
+
+def save_train_data_csv(
+    d,
+    top_f_names,
+    ybin,
+    list_portfolios,
+    symbols,
+    f_names,
+    y_name,
+    csv_num_PP=1,
+    csv_num_features=10,
+    fn_symbols="data/symbols_pp.csv",
+):
+    csv_top_features = select_top_features(
+        d, top_f_names, ybin, list_portfolios, symbols, Num_features=csv_num_features
+    )
+    csv_fname = "data/f" + str(csv_num_features) + "_PP" + str(csv_num_PP) + ".csv"
+
+    # P1 = symbols[10]
+    csv_d = d[f_names[:-2] + ["date", "symbol"] + [y_name]]
+    csv_d2 = csv_d[csv_d["symbol"] == symbols[0]]
+    csv_d3 = csv_d2.apply(
+        lambda x: (x > 0.0).astype(int) if x.name in [y_name] else x, axis=0
+    )
+    print("csv_d3.shape=", csv_d3.shape)
+    csv_d3.to_csv("data/sym1_187features.csv")
+
+    fcsv_d = d[csv_top_features + ["date", "symbol"] + [y_name]]
+    fcsv_d2 = fcsv_d[fcsv_d["symbol"].isin(list(np.unique(symbols)[-csv_num_PP:]))]
+    fcsv_d3 = fcsv_d2.apply(
+        lambda x: (x > 0.0).astype(int) if x.name in [y_name] else x, axis=0
+    )
+    print("csv_d3_top_features.shape=", fcsv_d3.shape)
+    fcsv_d3.to_csv(csv_fname)
+
+    d_date_pp = d[["date", "symbol", y_name]]
+    d01, features, targets = create_pp_time_series(y_name, fcsv_d, d_date_pp)
+    d01.to_csv(fn_symbols)
+    return csv_fname, d01, features, targets
 
 
 def create_train_labels(
-    y_name, Num_portfolios, Threshhold_cos, Num_features, Nt_backward
+    y_name,
+    Num_portfolios,
+    Threshhold_cos,
+    Num_features,
+    Nt_backward,
+    is_create_symbols_time_series=False,
 ):
     d, arr_f_maxcos, f_names = read_data(is_use_pkl=True)
     print("input data d.shape =", d.shape)
     #
     symbols = d["symbol"].values  # np.unique(symbol)
     symbols_unique = np.unique(symbols).shape
+    list_portfolios = np.unique(symbols)[-Num_portfolios:]
     list_portfolios = np.unique(symbols)[-Num_portfolios:]
     print(" Modeling portfolios: ", list_portfolios)
 
@@ -251,8 +267,9 @@ def create_train_labels(
     print(" top_features=", top_features)
     print([(f, dic_f_maxcos[f]) for f in top_features])
 
-    if False:
-        save_train_data_csv(
+    if is_create_symbols_time_series:
+        # create file <date,P1,..,P15,P1_sign> from large input file
+        csv_fname, d01, features, targets = save_train_data_csv(
             d,
             top_f_names,
             ybin,
@@ -262,7 +279,12 @@ def create_train_labels(
             y_name,
             csv_num_PP=1,
             csv_num_features=10,
+            fn_symbols="data/symbols_pp.csv",
         )
+        symbols_x_train, symbols_y_label = time_series_csv_to_lstm_input(
+            nt_backward=10, target=target, fn=fn, top_features=features
+        )
+        return symbols_x_train, symbols_y_label
 
     # scale input data
     d_top_features = copy.copy(d[top_features])
