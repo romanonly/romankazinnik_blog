@@ -1,11 +1,21 @@
 # Reproduce
 
 Create docker image (10-15mins) 
-Run as Docker container 4 steps: 
+
+Run as Docker container 
+
+Four steps: 
+
 Create blocks: blocks.pickle
+
 Manual Label and create classifier from container: clf.pickle
+
 Run inferences parallel by 100-blocks per process: deduplicate_big_{pool_id}.csv
-10+ interactions to select probability threshold and create two outputs: css_clear.csv
+
+10+ interactions to select probability threshold and create two outputs: 
+
+css_clear.csv
+
 css_duplicates.csv
 
 # Algorithm
