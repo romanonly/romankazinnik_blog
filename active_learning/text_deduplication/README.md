@@ -1,6 +1,10 @@
 # Reproduce
 
-Create docker image (10-15mins) 
+Create docker image (10-15mins):
+
+./create_docker.sh
+
+
 
 Run as Docker container 
 
