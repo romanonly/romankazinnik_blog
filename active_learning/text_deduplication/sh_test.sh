@@ -22,4 +22,3 @@ echo docker run image -v /absolute_path_local:/path_in_container
 echo docker run  -v $(PWD)/metrics:/usr/app/metrics -it ${full_image_name} /bin/bash
 echo ls metrics
 echo python3 -m metrics.run_dedup
-# docker run  -v /Users/rkazinnik/PycharmProjects/targil_bait/text_dedup/data:/usr/app/data -it gcr.io/dev-stovell-ai/test001:v0.1 /bin/bash
