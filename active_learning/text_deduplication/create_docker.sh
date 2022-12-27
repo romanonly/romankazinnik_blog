@@ -19,18 +19,22 @@ echo PWD=${PWD}
 
 echo  -e "\nInstructions:\n uncomment to run\n"
 
+
 echo  -e "\nStep-1: param = ${1}\n"
 echo docker run  -v ${PWD}/metrics:/usr/app/metrics  ${full_image_name} python3 -m metrics.run_blocks ${1}
 
-echo  -e "\nStep-2: Intreactuive Labeling\n"
+
+echo  -e "\nStep-2: Interactive Labeling\n"
 echo "run in container run_clf: EXIT when done"
-docker run  -v ${PWD}/metrics:/usr/app/metrics -it ${full_image_name} /bin/bash
+echo docker run  -v ${PWD}/metrics:/usr/app/metrics -it ${full_image_name} /bin/bash
 echo python3 -m metrics.run_clf
 
-echo  -e "\nStep-3: create duplicate pairs\n"
-echo docker run  -v ${PWD}/metrics:/usr/app/metrics  ${full_image_name} python3 -m metrics.run_dedup
 
-echo  -e "\nStep-4: Calibrate and create two lists: unique and duplicate (use Step-3 duplicate pairs) \n"
+echo  -e "\nStep-3: create duplicate pairs\n"
+docker run  -v ${PWD}/metrics:/usr/app/metrics  ${full_image_name} python3 -m metrics.run_dedup
+
+
+echo  -e "\nStep-4: Calibrate and create unique and duplicate record lists(use Step-3 duplicate pairs) \n"
 echo "run in container run_final: EXIT when done"
-echo docker run  -v ${PWD}/metrics:/usr/app/metrics -it ${full_image_name} /bin/bash
+docker run  -v ${PWD}/metrics:/usr/app/metrics -it ${full_image_name} /bin/bash
 echo python3 -mmetrics.run_final

@@ -4,23 +4,8 @@ import logging
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-
-BLOCKS_NUMBER_LAT = 100  # 1 km blocks
-BLOCKS_NUMBER_LON = 100  # recursive splitting
-BLOCKS_EPS = 0.001  # 100K blocks 100 m BLOCK MARGIN for LAT
-BLOCKS_MAX_ROWS = 100
-BLOCKS_MAX_RECURSIVE_DEPTH = 10  # allow 2^10 = 1000th fraction of LONG-LAT length
-BLOCKS_NANS_DROP_COLS = [
-    "geom",
-    "restaurant_chain",
-    "city",
-    "delivery_radius",
-    "restaurant_id",
-]
-BLOCKS_ANOMALY_STD_NUM = 3
-PATH = "metrics"
-PATH_CSV = "metrics"
-PLOT_DEBUG_FLAG = False
+from metrics.settings import BLOCKS_NUMBER_LAT, BLOCKS_NUMBER_LON, BLOCKS_EPS, BLOCKS_MAX_ROWS, \
+    BLOCKS_MAX_RECURSIVE_DEPTH, BLOCKS_NANS_DROP_COLS, BLOCKS_ANOMALY_STD_NUM, PATH, PATH_CSV, PLOT_DEBUG_FLAG
 
 fn_csv = "css_public_all_ofos_locations.csv"
 
@@ -117,12 +102,11 @@ def recursive_split(
         if df_k.shape[0] > 0:
             return [df_k]
         return []
-    # split more
+    # split
     x1_2 = x1 + (x2 - x1) / 2
     y1_2 = y1 + (y2 - y1) / 2
     df_list_1 = recursive_split(df_recursive, col1, x1, x1_2, col2, y1, y1_2, depth + 1)
     df_list_2 = recursive_split(df_recursive, col1, x1, x1_2, col2, y1_2, y2, depth + 1)
-
     df_list_3 = recursive_split(df_recursive, col1, x1_2, x2, col2, y1, y1_2, depth + 1)
     df_list_4 = recursive_split(df_recursive, col1, x1_2, x2, col2, y1_2, y2, depth + 1)
     return df_list_1 + df_list_2 + df_list_3 + df_list_4
@@ -135,10 +119,7 @@ def create_blocks(df0):
     )
     lati_i = df0["latitude"].min() + dlat_i * range(BLOCKS_NUMBER_LAT)
 
-    # sys.setrecursionlimit(4000)
-    # logger.info(f"recursive blocks: setrecursionlimit = {sys.getrecursionlimit()}")
     total_df_k_k_list = []
-    all_blocks = []
     max_rows = []
     for i in range(1, BLOCKS_NUMBER_LAT):
         if i % (1 + int(BLOCKS_NUMBER_LAT / 100)) == 0:
