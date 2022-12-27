@@ -6,21 +6,31 @@ full_image_name=${image_name}:${image_tag}
 cd "$(dirname "$0")"
 
 docker build -t "${full_image_name}" .
-ECHO docker run rk_image/test001:v0.1 -m metrics.run_main --parameters
-alias PWD="pwd -P"
+echo docker run rk_image/test001:v0.1 -m metrics.run_main --parameters
 
-echo  -e "\nInstructions:\n"
+for i in $( ls ); do
+    echo for_item: $i
+done
+
+# alias PWD=$("pwd -P")
+PWD=$( pwd -P)
+echo PWD=${PWD}
+
+
+echo  -e "\nInstructions:\n uncomment to run\n"
 
 echo  -e "\nStep-1:\n"
-echo docker run  -v $(PWD)/metrics:/usr/app/metrics  ${full_image_name} python3 -m metrics.run_blocks
+echo docker run  -v ${PWD}/metrics:/usr/app/metrics  ${full_image_name} python3 -m metrics.run_blocks
 
 echo  -e "\nStep-2: Intreactuive Labeling\n"
-echo docker run  -v $(PWD)/metrics:/usr/app/metrics -it ${full_image_name} /bin/bash
+echo "run in container run_clf: EXIT when done"
+echo docker run  -v ${PWD}/metrics:/usr/app/metrics -it ${full_image_name} /bin/bash
 echo python3 -m metrics.run_clf
 
-echo  -e "\nStep-3:\n"
-echo docker run  -v $(PWD)/metrics:/usr/app/metrics  ${full_image_name} python3 -m metrics.run_dedup
+echo  -e "\nStep-3: create duplicate pairs\n"
+echo docker run  -v ${PWD}/metrics:/usr/app/metrics  ${full_image_name} python3 -m metrics.run_dedup
 
-echo  -e "\nStep-4: Intreactuive Labeling\n"
-echo docker run  -v $(PWD)/metrics:/usr/app/metrics -it ${full_image_name} /bin/bash
+echo  -e "\nStep-4: Calibrate and create two lists: unique and duplicate (use Step-3 duplicate pairs) \n"
+echo "run in container run_final: EXIT when done"
+docker run  -v ${PWD}/metrics:/usr/app/metrics -it ${full_image_name} /bin/bash
 echo python3 -mmetrics.run_final
