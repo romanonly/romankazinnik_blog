@@ -15,7 +15,7 @@ chmod +x create_docker.sh
 
 ## Fast test: 10mins 20K records. Run all with 'all' (500K+ records, 10 hours)  
 
-step_1_create_blocks.sh # fast test run, 10min. add 'all' full run, 10 hrs 
+step_1_create_blocks.sh # fast test run. add 'all' full run 
 
 step_2_train_clf.sh
 
