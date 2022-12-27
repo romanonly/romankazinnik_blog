@@ -1,0 +1,5 @@
+
+active_learning/text_deduplication/metrics/__pycache__/run_blocks.cpython-36.pyc
+*.pyc
+*.csv
+*.pickle
