@@ -45,27 +45,24 @@ step_4_final.sh
 
 ### 10+ interactions to select probability threshold and create two outputs: 
 
-css_clear.csv
+### css_clear.csv
 
-css_duplicates.csv
+### css_duplicates.csv
 
 
 # Algorithm
 
-### 20 mins: Build docker image
+### 5 mins: Build docker image
 
-### 10mins: Blocks
-Create 32K record pair blocks
+### 10mins: Create record-pair blocks
 
-### 15mins: Initialize 
-Create initial Labels from 2K blocks and initial Classifier
+### 15mins: Create initial labels from blocks and classifier
 
 ### 10mins: Iterate till Stopping Criteria:
 
 Sampling Strategy: Pull from Unlabeled and Label manually
 
 Retrain Classifier with newly added Labels
-
 ### 100mins = X32 cores 32K blocks at 10 blocks per min processing
 
 Run Classifier Inferences for All Block of Pairs

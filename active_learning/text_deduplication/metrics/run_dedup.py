@@ -7,7 +7,8 @@ import gc
 from multiprocessing import Pool
 import warnings
 from metrics.run_clf import predict_proba, create_train_rows
-from metrics.settings import DEDUP_BATCH_SIZE, DEDUP_PROB_THRESHOLD, DEDUP_NUM_RANDOM_BLOCKS_SELECT, DEDUP_BLOCKS_PER_PROCESS, PATH
+from metrics.settings import DEDUP_BATCH_SIZE, DEDUP_PROB_THRESHOLD, DEDUP_NUM_RANDOM_BLOCKS_SELECT, \
+    DEDUP_BLOCKS_PER_PROCESS, PATH, NUM_CPU_THREADS
 
 
 warnings.filterwarnings("ignore")
@@ -93,7 +94,7 @@ def run_parallel(blocks):
         for i in range(0, len(blocks), DEDUP_BLOCKS_PER_PROCESS)
     ]
     logger.info(f"multiprocessing Pool: *** {len(blocks_li_li)} *** parallel lists")
-    pool = Pool()  # processes=NUM_THREADS)  # 8 cores/16
+    pool = Pool(processes=NUM_CPU_THREADS)  # 8 cores/16
     df_k_k_li_li = pool.map(
         process_block, zip(range(len(blocks_li_li)), blocks_li_li)
     )
