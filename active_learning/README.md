@@ -11,7 +11,7 @@ https://www.dropbox.com/s/kkyvdam20htcur9/css_public_all_ofos_locations.csv?dl=0
 chmod +x sh_test.sh
 chmod +x create_docker.sh 
 
-# Clone, create docker image (approx. 10mins) and run four steps:
+# Clone, create docker image and run four steps:
 
 ## Fast test: approx 5mins with 20K records sampled. Run 'all' 500K+ records, approx 10 hours. Update Docker CPUs number (here NUM_CPU_THREADS = 64) and Memory and settings.py.
 
