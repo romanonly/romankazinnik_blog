@@ -47,6 +47,7 @@ PARALLEL_NUM_CONCUR = 100
 NUM_THREADS = 8
 PATH = "metrics"
 
+
 def predict_proba(clf, X_train, cols_pred):
     preds_train = clf.predict_proba(X_train[cols_pred])
     if preds_train.shape[1] == 1:  # all '1' , 0 dropped
@@ -57,66 +58,67 @@ def predict_proba(clf, X_train, cols_pred):
 
 
 def create_clf(total_df_k_k_list):
-    df_True, df_False, df_Unlabeled = create_training_from_blocks(
+    df_true, df_false, df_unlabeled = create_training_from_blocks(
         total_df_k_k_list, num_random_blocks=NUM_RANDOM_BLOCKS_SELECT
     )
-    Y_labels = np.array([True] * len(df_True) + [False] * len(df_False))
-    X_Labeled = pd.concat(objs=[df_True, df_False], axis=0)
-    assert len(df_True) > 0 and len(df_False) > 0
-    logger.info(f" Labels True ={len(df_True)} False={len(df_False)}")
-    logger.info(f" UNLabeled ={len(df_Unlabeled)}")
+    y_labels_arr = np.array([True] * len(df_true) + [False] * len(df_false))
+    x_labels_arr = pd.concat(objs=[df_true, df_false], axis=0)
+    assert len(df_true) > 0 and len(df_false) > 0
+    logger.info(f" Labels True ={len(df_true)} False={len(df_false)}")
+    logger.info(f" UNLabeled ={len(df_unlabeled)}")
     # logger.info(f" Example 5-positives \n{X_Labeled.head(5)}")
 
     # Train Loop
-    X_Labeled, Y_labels = shuffle(X_Labeled, Y_labels)
+    x_labels_arr, y_labels_arr = shuffle(x_labels_arr, y_labels_arr)
 
     # Columns: scaled predictors and manual labeling
-    cols_pred = [col for col in X_Labeled.columns if col.startswith("f_")]
+    cols_pred = [col for col in x_labels_arr.columns if col.startswith("f_")]
     # cols_view  [col for col in X_Labeled.columns if not col.startswith("f_")]
     cols_view = ["name_x", "name_y", "platform_x", "platform_y", "dist"]
     logger.info(f" Features {len(cols_pred)} scaled = {cols_pred}")
     logger.info(f" Orig columns (non-scaled) = {cols_view}")
 
     # Split: Train, Valid, Unlabeled
-    indices = np.random.permutation(len(X_Labeled))
-    train_n = min(MAX_TRAIN, int(len(X_Labeled) * TRAIN_VALID_SPLIT))
+    indices = np.random.permutation(len(x_labels_arr))
+    train_n = min(MAX_TRAIN, int(len(x_labels_arr) * TRAIN_VALID_SPLIT))
     idx1, idx2 = indices[:train_n], indices[train_n:]
-    X_train, Y_train = copy.copy(X_Labeled.iloc[idx1, :]), Y_labels[idx1]
-    X_valid, Y_valid = copy.copy(X_Labeled.iloc[idx2, :]), Y_labels[idx2]
+    x_train_arr, y_train_arr = copy.copy(x_labels_arr.iloc[idx1, :]), y_labels_arr[idx1]
+    x_valid_arr, y_valid_arr = copy.copy(x_labels_arr.iloc[idx2, :]), y_labels_arr[idx2]
 
     # Scale by Train
-    scaler = preprocessing.RobustScaler().fit(X_train[cols_pred])
+    scaler = preprocessing.RobustScaler().fit(x_train_arr[cols_pred])
 
-    X_train.loc[:, cols_pred] = scaler.transform(X_train[cols_pred])
-    X_valid.loc[:, cols_pred] = scaler.transform(X_valid[cols_pred])
-    df_Unlabeled.loc[:, cols_pred] = scaler.transform(df_Unlabeled[cols_pred])
+    x_train_arr.loc[:, cols_pred] = scaler.transform(x_train_arr[cols_pred])
+    x_valid_arr.loc[:, cols_pred] = scaler.transform(x_valid_arr[cols_pred])
+    df_unlabeled.loc[:, cols_pred] = scaler.transform(df_unlabeled[cols_pred])
 
-    assert X_train.isna().sum().sum() == 0
+    assert x_train_arr.isna().sum().sum() == 0
     # Manually labeled will have higher weights
-    weights = np.array([1] * len(X_train))
+    weights = np.array([1] * len(x_train_arr))
     new_labels = "continue"
     pred_thresh_list = [0]
     iter_manual = 0
+    clf = None
     while new_labels != "":
         iter_manual += 1
         # manual labels
         logger.info(
-            f"Positive labels (DUPLICATES): train-valid={np.sum(Y_train)},{np.sum(Y_valid)}"
+            f"Positive labels (DUPLICATES): train-valid={np.sum(y_train_arr)},{np.sum(y_valid_arr)}"
         )
         logger.info(
-            f"Lengths Train={len(X_train)} X_valid={len(X_valid)} Unlabeled={len(df_Unlabeled)}"
+            f"Lengths Train={len(x_train_arr)} X_valid={len(x_valid_arr)} Unlabeled={len(df_unlabeled)}"
         )
 
         clf, preds_train, preds_valid, preds_unlabeled, s1 = create_classifier_preds(
-            cols_pred, X_train, Y_train, X_valid, Y_valid, weights, df_Unlabeled
+            cols_pred, x_train_arr, y_train_arr, x_valid_arr, y_valid_arr, weights, df_unlabeled
         )
         logger.info(f"{s1}")
         logger.info(f"\n\nManual label iteration = {iter_manual}\n\n")
         # Entropy
-        X_train["odds_5050"] = -0.5 + preds_train
-        X_valid["odds_5050"] = -0.5 + preds_valid
-        preds05 = -0.5 + preds_unlabeled
-        df_Unlabeled["odds_5050"] = preds05
+        x_train_arr["odds_5050"] = -0.5 + preds_train
+        x_valid_arr["odds_5050"] = -0.5 + preds_valid
+        predictions_05_level = -0.5 + preds_unlabeled
+        df_unlabeled["odds_5050"] = predictions_05_level
         # Manual labeling: select 1 data point from each side
         logger.info(f"STOPPING CRITERIA\n")
         logger.info(
@@ -126,68 +128,56 @@ def create_clf(total_df_k_k_list):
             f" UNLABELED DUPLICATES: MEAN  = {np.mean(preds_unlabeled[preds_unlabeled>0.5]):.2f} - QUIT WHEN NEAR 1.0"
         )
         if LABELS_STRATEGY == "low_noise":
-            ind = np.argpartition(np.abs(preds05), LABELS_NOISE_NUM)[:LABELS_NOISE_NUM]
-            pred_thresh = max(np.abs(preds05)[ind[:LABELS_NOISE_NUM]])
+            ind = np.argpartition(np.abs(predictions_05_level), LABELS_NOISE_NUM)[:LABELS_NOISE_NUM]
+            pred_thresh = max(np.abs(predictions_05_level)[ind[:LABELS_NOISE_NUM]])
             pred_thresh_list.append(pred_thresh)
-            df_update = df_Unlabeled[preds05 < pred_thresh]
-            df_Unlabeled = df_Unlabeled[preds05 > pred_thresh]
+            df_update = df_unlabeled[predictions_05_level < pred_thresh]
+            df_unlabeled = df_unlabeled[predictions_05_level > pred_thresh]
         elif LABELS_STRATEGY == "high_noise":
-            df_update, df_Unlabeled = active_strategy(preds05, df_Unlabeled)
+            df_update, df_unlabeled = active_strategy(predictions_05_level, df_unlabeled)
 
-        new_Y = None
-        while new_Y is None or not ((len(new_Y) == len(df_update)) or new_labels == ""):
+        new_arr_y = None
+        while new_arr_y is None or not ((len(new_arr_y) == len(df_update)) or new_labels == ""):
             logger.info(f"\n{df_update[cols_view + ['odds_5050']]}")
             logger.info(
                 f"Please input {len(df_update)} labels 1(DUPPLICATED) or 0, comma separated. Example: 1,0  ENTER to quit:\n"
             )
             new_labels = input()
             try:
-                new_Y = np.array([np.bool(np.int(x)) for x in new_labels.split(",")])
+                new_arr_y = np.array([np.bool(np.int(x)) for x in new_labels.split(",")])
             except Exception as e:
                 logger.info(f" *** END MANUAL ENTER")
-                new_Y = []
-        if new_Y is not None and new_Y != []:
+                new_arr_y = []
+        if new_arr_y is not None and new_arr_y != []:
             create_plots(
-                preds_train, preds_valid, preds_unlabeled, Y_train, Y_valid,
+                preds_train, preds_valid, preds_unlabeled, y_train_arr, y_valid_arr,
             )
-            logger.info(f"new_Y = {new_Y}")
-            weights = np.concatenate((weights, np.array([LABELS_WEIGHT] * len(new_Y))))
-            Y_train = np.concatenate((Y_train, new_Y))
-            X_train = pd.concat(objs=[X_train, df_update], axis=0)
+            logger.info(f"new_Y = {new_arr_y}")
+            weights = np.concatenate((weights, np.array([LABELS_WEIGHT] * len(new_arr_y))))
+            y_train_arr = np.concatenate((y_train_arr, new_arr_y))
+            x_train_arr = pd.concat(objs=[x_train_arr, df_update], axis=0)
     return clf, scaler, cols_pred, cols_view
 
 
-def self_merge(df3: pd.DataFrame):
+def self_merge(df_in: pd.DataFrame):
     """ self merge and return upper triangle """
-    df3["_idx"] = range(1, len(df3) + 1)
-    df3["key"] = 0
-    df33 = df3.merge(df3, how="left", on="key")
-    # df3.drop(["_idx", "key"], 1, inplace=True)
-    # drop a>=b, keep onlu a<b
-    #    df33 = df33[~(df33["_idx_x"] == df33["_idx_y"])]
-    df33 = df33[df33["_idx_x"] < df33["_idx_y"]]
-    if len(df33) == 0:
+    df_in["_idx"] = range(1, len(df_in) + 1)
+    df_in["key"] = 0
+    df_out = df_in.merge(df_in, how="left", on="key")
+    df_out = df_out[df_out["_idx_x"] < df_out["_idx_y"]]
+    if len(df_out) == 0:
         return None
-    df33.drop(["key", "_idx_x", "_idx_y"], 1, inplace=True)
-    if False:
-        df33["_idx1_idx2"] = df33.apply(
-            lambda x: f"{max(x['_idx_x'], x['_idx_y'])}_{min(x['_idx_x'], x['_idx_y'])}",
-            axis=1,
-        )  # non-zero name len
-        df33.drop_duplicates(["_idx1_idx2"], inplace=True)
-        df33.drop(["_idx_x", "_idx_y", "_idx1_idx2"], 1, inplace=True)
-        if len(df33) == 0:
-            return None
-    assert 2 * len(df33) == len(df3) * (len(df3) - 1)
-    return df33
+    df_out.drop(["key", "_idx_x", "_idx_y"], 1, inplace=True)
+    assert 2 * len(df_out) == len(df_in) * (len(df_in) - 1)
+    return df_out
 
 
-def create_features(df4: pd.DataFrame, cols_str: str):
+def create_features(df_in: pd.DataFrame, cols_str: str):
     """features names start cf_  """
-    df4[["active_x", "active_y"]] = df4[["active_x", "active_y"]].astype(bool)
-    df4["f_active"] = df4["active_x"] == df4["active_y"]
-    df4["f_platform"] = df4["platform_x"] == df4["platform_y"]
-    df4[f"f_1st_word"] = df4.apply(
+    df_in[["active_x", "active_y"]] = df_in[["active_x", "active_y"]].astype(bool)
+    df_in["f_active"] = df_in["active_x"] == df_in["active_y"]
+    df_in["f_platform"] = df_in["platform_x"] == df_in["platform_y"]
+    df_in[f"f_1st_word"] = df_in.apply(
         lambda x: (
             (x["standardized_name_x"].split("_")[0] == x["standardized_name_y"].split("_")[0])
             & (x["standardized_name_x"].split("_")[0] != 'the')
@@ -196,31 +186,31 @@ def create_features(df4: pd.DataFrame, cols_str: str):
     )
     for col in cols_str:
         if col != "active" and col != "platform":
-            df4[f"f_{col}_len"] = df4.apply(
+            df_in[f"f_{col}_len"] = df_in.apply(
                 lambda x: 1 + max(len(x[col + "_x"]), len(x[col + "_y"])), axis=1
             )
-            df4[f"f_{col}_dist_int"] = df4.apply(
+            df_in[f"f_{col}_dist_int"] = df_in.apply(
                 lambda x: levenshtein.distance(x[col + "_x"], x[col + "_y"]), axis=1
             )
-            df4[f"f_{col}_dist_rel"] = df4[f"f_{col}_dist_int"] / df4[f"f_{col}_len"]
-    df4["f_latitude"] = 0.5 * (df4["latitude_x"] + df4["latitude_y"])
-    df4["f_longitude"] = 0.5 * (df4["longitude_x"] + df4["longitude_y"])
-    df4["f_dist_lat"] = (df4["latitude_x"] - df4["latitude_y"]).abs()
-    df4["f_dist_long"] = (df4["longitude_x"] - df4["longitude_y"]).abs()
-    df4["f_dist_long"] = df4["f_dist_long"] * np.abs(
-        1e-4 + np.cos(np.pi / 180 * df4["f_latitude"]) / 360
+            df_in[f"f_{col}_dist_rel"] = df_in[f"f_{col}_dist_int"] / df_in[f"f_{col}_len"]
+    df_in["f_latitude"] = 0.5 * (df_in["latitude_x"] + df_in["latitude_y"])
+    df_in["f_longitude"] = 0.5 * (df_in["longitude_x"] + df_in["longitude_y"])
+    df_in["f_dist_lat"] = (df_in["latitude_x"] - df_in["latitude_y"]).abs()
+    df_in["f_dist_long"] = (df_in["longitude_x"] - df_in["longitude_y"]).abs()
+    df_in["f_dist_long"] = df_in["f_dist_long"] * np.abs(
+        1e-4 + np.cos(np.pi / 180 * df_in["f_latitude"]) / 360
     )
-    df4["f_dist"] = (df4["f_dist_long"] * df4["f_dist_long"]) + (
-        df4["f_dist_lat"] * df4["f_dist_lat"]
+    df_in["f_dist"] = (df_in["f_dist_long"] * df_in["f_dist_long"]) + (
+        df_in["f_dist_lat"] * df_in["f_dist_lat"]
     )
-    df4["f_dist"] = np.sqrt(df4["f_dist"])
+    df_in["f_dist"] = np.sqrt(df_in["f_dist"])
     cols_drop = ["f_dist_lat", "f_dist_long", "f_latitude", "f_longitude"]
     cols_drop += ["latitude_x", "latitude_y", "longitude_x", "longitude_y"]
-    df4.drop(cols_drop, axis=1, inplace=True)
+    df_in.drop(cols_drop, axis=1, inplace=True)
     # NON-SCALE columns for MANUAL LABELING
-    df4["dist"] = df4["f_dist"]
-    df4["name_dist_int"] = df4["f_name_dist_int"]
-    return df4
+    df_in["dist"] = df_in["f_dist"]
+    df_in["name_dist_int"] = df_in["f_name_dist_int"]
+    return df_in
 
 
 def create_train_rows(
@@ -305,10 +295,10 @@ def create_plots(
     plt.show()
 
 
-def active_strategy(preds05, df_Unlabeled):
+def active_strategy(predictions_level05, df_Unlabeled):
     pos_ind, neg_ind = [], []
-    pos_mask = (preds05 > LABELS_MIN_THRESHOLD) & (preds05 < LABELS_MAX_THRESHOLD)
-    neg_mask = (preds05 > -LABELS_MAX_THRESHOLD) & (preds05 < -LABELS_MIN_THRESHOLD)
+    pos_mask = (predictions_level05 > LABELS_MIN_THRESHOLD) & (predictions_level05 < LABELS_MAX_THRESHOLD)
+    neg_mask = (predictions_level05 > -LABELS_MAX_THRESHOLD) & (predictions_level05 < -LABELS_MIN_THRESHOLD)
     pos_ind = np.where(pos_mask)[0]
     neg_ind = np.where(neg_mask)[0]
     if len(list(pos_ind)) >= LABELS_SELECT_EACH_SIDE:
@@ -319,7 +309,7 @@ def active_strategy(preds05, df_Unlabeled):
         neg_ind = list(random.sample(list(neg_ind), LABELS_SELECT_EACH_SIDE))
     else:
         neg_ind = [np.argmax(pos_mask)]
-    kep_rows = set(range(len(preds05))).difference(set(list(pos_ind) + list(neg_ind)))
+    kep_rows = set(range(len(predictions_level05))).difference(set(list(pos_ind) + list(neg_ind)))
     df_update = df_Unlabeled.iloc[list(pos_ind) + list(neg_ind)]
     df_unlabl = df_Unlabeled.iloc[list(kep_rows)]
     assert len(df_unlabl) + len(df_update) == len(df_Unlabeled)
@@ -329,9 +319,10 @@ def active_strategy(preds05, df_Unlabeled):
 def process_block(ind_block):
     """ list of blocks as DataFrames"""
     ind = ind_block[0]
-    logger.info(f"parallel process {ind} (chunks of {(PARALLEL_NUM_CONCUR)})")
+    logger.info(f"parallel process {ind} (chunks of {PARALLEL_NUM_CONCUR})")
     df_k_li = ind_block[1]
     return [create_train_rows(d) for d in df_k_li if d is not None]
+
 
 def run_parallel(blocks):
     blocks_li_li = [blocks[i:i + PARALLEL_NUM_CONCUR] for i in range(0, len(blocks), PARALLEL_NUM_CONCUR)]
@@ -341,6 +332,7 @@ def run_parallel(blocks):
     df_k_k_list = [item for sublist in df_k_k_li_li for item in sublist if item is not None]
     logger.info(f"multiprocessing Pool finished blocks={len(df_k_k_list)} from {len(df_k_k_li_li)} processes")
     return df_k_k_list
+
 
 def create_training_from_blocks(
     total_df_k_k_list, num_random_blocks: int = -1, min_name_dist: int = 2
@@ -396,12 +388,14 @@ def create_training_from_blocks(
     return df_True, df_False, df_Unlabeled
 
 
-
-
-
 if __name__ == "__main__":
-    logger.info(f"reading {PATH}/blocks.pickle")
-    pickle_off = open(f"{PATH}/blocks.pickle", "rb")
+    try:
+        logger.info(f"\n... read blocks for all records\n")
+        pickle_off = open(f"{PATH}/blocks.pickle", "rb")
+    except Exception as e:
+        logger.info(f"\n... blocks.pickle does not exist ({e}), read blocks small subset 20K records\n")
+        pickle_off = open(f"{PATH}/blocks_small.pickle", "rb")
+
     total_df_k_k_list, df_all, df_anom = pickle.load(pickle_off)
 
     # Create clf

@@ -1,9 +1,6 @@
-import pandas as pd
-import pickle
 import logging
+import pandas as pd
 import numpy as np
-import random
-from metrics.run_clf import predict_proba, create_train_rows
 from metrics.run_blocks import read_data, fn_csv, PATH_CSV, PATH
 
 logging.basicConfig(level=logging.INFO)
@@ -35,9 +32,9 @@ if __name__ == "__main__":
             df_pos_concat.drop_duplicates(['idx_x', 'idx_y'], keep="last", inplace=True)
             logger.info(f"read dedup {fn1} total rows={len(df_pos_concat)}")
     except Exception as e:
-        logger.info(f" reading {ind} files finished.")
+        logger.info(f" reading {ind} files finished ({e}).")
     # Threshold
-    # sort by probam and select proba_threshold
+    # sort by probability and select proba_threshold
     df_pos = df_pos_concat
     iterate = 0
     df_pos.sort_values(by=['probability_duplicate'], ascending=False, inplace=True)
@@ -61,7 +58,7 @@ if __name__ == "__main__":
         try:
             new_Y = np.array([np.bool(np.int(x)) for x in new_labels.split(",")])
         except Exception as e:
-            logger.info(f" *** END MANUAL ENTER")
+            logger.info(f" *** END MANUAL ENTER ({e}).")
         if new_Y == 1:  # go down, increase proba
             ind1 = ind_1_2
         elif new_Y == 0:
@@ -74,7 +71,6 @@ if __name__ == "__main__":
     idx_list = list(idx_set)
     idx_list.sort()
     df_exam = df_pos[df_pos["idx_x"].isin(idx_list[:3]) | df_pos["idx_y"].isin(idx_list[:3])]
-    # logger.info(f"example duplicates idx={idx_list[:3]}: \n{df_exam}")
     logger.info(f"example duplicates idx={idx_list[:3]}: \n{df[df['idx'].isin(idx_list[:3])]}")
     logger.info(f"writing: {fn_clean}, {fn_duplicates}")
     mask = df['idx'].isin(idx_list)
