@@ -13,9 +13,9 @@ chmod +x create_docker.sh
 
 # Clone, create docker image (10-15mins) and run four steps:
 
-## Fast test: 10mins 20K records. Run all with 'all' (500K+ records, 10 hours). Update Docker CPUs and Memory and settings.py.
+## Fast test: 10mins 20K records. Run 'all' 500K+ records, 10 hours. Update Docker CPUs number (here NUM_CPU_THREADS = 32) and Memory and settings.py.
 
-step_1_create_blocks.sh # fast test run. add 'all' full run 
+step_1_create_blocks.sh # fast test run. Add 'all' full run 
 
 step_2_train_clf.sh
 
