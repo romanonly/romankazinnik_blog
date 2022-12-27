@@ -24,9 +24,11 @@ css_duplicates.csv
 
 ### 20 mins: Build docker image
 
-### 10mins: Create 32K Blocks of Pairs
+### 10mins: Blocks
+Create 32K record pair blocks
 
-### 15mins: Create Initial Labels from 2K blocks and initial Classifier
+### 15mins: Initialize 
+Create initial Labels from 2K blocks and initial Classifier
 
 ### 10mins: Iterate till Stopping Criteria:
 
@@ -40,10 +42,13 @@ Run Classifier Inferences for All Block of Pairs
 
 # Questions and future work
 
-### How to estimate the actual classification accuracy attained by this algorithm?
+### Acuracy
+How to estimate the actual classification accuracy attained by this algorithm?
 
-### Experiment with features and model architectures and improve the classification accuracy
+### Experiment
+Try new features and model architectures and improve the classification accuracy.
 
-### Production-grade: current algorithms runs parallel and persists all computations but doesn't robust to failures. 
+### Production-grade
+current algorithms runs parallel and persists all computations but doesn't robust to failures. 
 It needs to be restarted if even one block out of thousands fails to compute. How to implement an optimal reducer to aggregate all the results?
 
