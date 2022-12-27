@@ -16,7 +16,7 @@ import gc
 from metrics.settings import MAX_TRAIN, TRAIN_VALID_SPLIT, NUM_RANDOM_BLOCKS_SELECT, LABELS_NOISE_NUM, \
     LABELS_SELECT_EACH_SIDE, LABELS_MIN_THRESHOLD, LABELS_MAX_THRESHOLD, LABELS_WEIGHT, N_ESTIMATORS, \
     MAX_DEPTH, LABELS_STRATEGY, LABELS_POSITIVE_MAX_DIST,  LABELS_NEGATIVE_MIN_DIST, PROCESS_PARALLEL, \
-    PARALLEL_NUM_CONCUR, NUM_THREADS, PATH,  PLOT_DEBUG_FLAG, LABELS_COLS_STRINGS
+    PARALLEL_NUM_CONCUR, NUM_CPU_THREADS, PATH,  PLOT_DEBUG_FLAG, LABELS_COLS_STRINGS
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -300,7 +300,7 @@ def process_block(ind_block):
 def run_parallel(blocks):
     blocks_li_li = [blocks[i:i + PARALLEL_NUM_CONCUR] for i in range(0, len(blocks), PARALLEL_NUM_CONCUR)]
     logger.info(f"create multiprocessing Pool: *** {len(blocks_li_li)} *** parallel block lists")
-    pool = Pool()
+    pool = Pool(processes=NUM_CPU_THREADS)
     df_k_k_li_li = pool.map(process_block, zip(range(len(blocks_li_li)), blocks_li_li))
     df_k_k_list = [item for sublist in df_k_k_li_li for item in sublist if item is not None]
     logger.info(f"multiprocessing Pool finished blocks={len(df_k_k_list)} from {len(df_k_k_li_li)} processes")
