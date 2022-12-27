@@ -1,27 +1,32 @@
 import logging
 import pandas as pd
 import numpy as np
-from metrics.run_blocks import read_data, fn_csv, PATH_CSV, PATH
+from metrics.run_blocks import read_data, fn_csv
+from metrics.settings import PATH_CSV, PATH
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 pd.options.mode.chained_assignment = None  # default='warn'
 
+
 pd.set_option("display.max_rows", 500)
 pd.set_option("display.max_columns", 500)
 pd.set_option("display.width", 1000)
 
+
 fn_clean = f'{PATH}/css_clean.csv'
 fn_duplicates = f'{PATH}/css_duplicates.csv'
 fn_duplicates_pairs = f'{PATH}/css_duplicates_pairs.csv'
+
 
 if __name__ == "__main__":
     """ select proba threshold and create x2 csv files: duplicates and clean """
     logger.info(f"reading {fn_csv} ")
     df = read_data(fn_csv, is_remove_id=False)
     df_pos_concat = pd.DataFrame()
-    try:
-        for ind in range(100000):
+    for ind in range(100000):
+        try:
             fn1 = f"{PATH}/duplicates_big_{ind}.csv"
             df_pos = pd.read_csv(f"{fn1}", sep=",", dtype=str, index_col=0)
             df_pos.reset_index(inplace=True, drop=True)
@@ -31,8 +36,8 @@ if __name__ == "__main__":
             df_pos_concat = pd.concat(objs=[df_pos_concat, df_pos], axis=0)
             df_pos_concat.drop_duplicates(['idx_x', 'idx_y'], keep="last", inplace=True)
             logger.info(f"read dedup {fn1} total rows={len(df_pos_concat)}")
-    except Exception as e:
-        logger.info(f" reading {ind} files finished ({e}).")
+        except Exception as e:
+            pass  # logger.info(f" reading {ind} files finished ({e}).")
     # Threshold
     # sort by probability and select proba_threshold
     df_pos = df_pos_concat
@@ -56,7 +61,7 @@ if __name__ == "__main__":
         logger.info(f"\n{df_update}")
         new_labels = input()
         try:
-            new_Y = np.array([np.bool(np.int(x)) for x in new_labels.split(",")])
+            new_Y = np.array([np.bool_(np.int_(x)) for x in new_labels.split(",")])
         except Exception as e:
             logger.info(f" *** END MANUAL ENTER ({e}).")
         if new_Y == 1:  # go down, increase proba

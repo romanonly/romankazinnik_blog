@@ -13,39 +13,17 @@ from sklearn.metrics import roc_auc_score
 import random
 from multiprocessing import Pool
 import gc
+from metrics.settings import MAX_TRAIN, TRAIN_VALID_SPLIT, NUM_RANDOM_BLOCKS_SELECT, LABELS_NOISE_NUM, \
+    LABELS_SELECT_EACH_SIDE, LABELS_MIN_THRESHOLD, LABELS_MAX_THRESHOLD, LABELS_WEIGHT, N_ESTIMATORS, \
+    MAX_DEPTH, LABELS_STRATEGY, LABELS_POSITIVE_MAX_DIST,  LABELS_NEGATIVE_MIN_DIST, PROCESS_PARALLEL, \
+    PARALLEL_NUM_CONCUR, NUM_THREADS, PATH,  PLOT_DEBUG_FLAG, LABELS_COLS_STRINGS
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 pd.options.mode.chained_assignment = None  # default='warn'
 pd.set_option("display.max_rows", 500)
 pd.set_option("display.max_columns", 500)
 pd.set_option("display.width", 1000)
-
-# Create train data
-MAX_TRAIN = 300000
-TRAIN_VALID_SPLIT = 0.8
-NUM_RANDOM_BLOCKS_SELECT = 803  # 10min / 32K total, 10 blocks per min
-LABELS_NOISE_NUM = 10
-LABELS_SELECT_EACH_SIDE = 1
-LABELS_MIN_THRESHOLD = 0.05
-LABELS_MAX_THRESHOLD = 0.20
-LABELS_WEIGHT = 10
-N_ESTIMATORS = 200
-MAX_DEPTH = 3
-LABELS_STRATEGY = "high_noise"
-LABELS_COLS_STRINGS = [
-    "name",
-    "standardized_name",
-    "platform",
-    # "sub_platform",
-    # "country",
-    "active",
-]
-LABELS_POSITIVE_MAX_DIST = 1e-4
-LABELS_NEGATIVE_MIN_DIST = 0.01
-PROCESS_PARALLEL = True
-PARALLEL_NUM_CONCUR = 100
-NUM_THREADS = 8
-PATH = "metrics"
 
 
 def predict_proba(clf, X_train, cols_pred):
@@ -144,11 +122,11 @@ def create_clf(total_df_k_k_list):
             )
             new_labels = input()
             try:
-                new_arr_y = np.array([np.bool(np.int(x)) for x in new_labels.split(",")])
+                new_arr_y = np.array([np.bool_(np.int_(x)) for x in new_labels.split(",")])
             except Exception as e:
                 logger.info(f" *** END MANUAL ENTER")
                 new_arr_y = []
-        if new_arr_y is not None and new_arr_y != []:
+        if new_arr_y is not None and len(new_arr_y) > 0:
             create_plots(
                 preds_train, preds_valid, preds_unlabeled, y_train_arr, y_valid_arr,
             )
@@ -167,7 +145,13 @@ def self_merge(df_in: pd.DataFrame):
     df_out = df_out[df_out["_idx_x"] < df_out["_idx_y"]]
     if len(df_out) == 0:
         return None
-    df_out.drop(["key", "_idx_x", "_idx_y"], 1, inplace=True)
+
+    #df_out.drop(["key", "_idx_x", "_idx_y"], 1, inplace=True)
+    new_cols = df_out.columns.values.tolist()
+    new_cols.remove("key")
+    new_cols.remove("_idx_x")
+    new_cols.remove("_idx_y")
+    df_out = df_out[new_cols]
     assert 2 * len(df_out) == len(df_in) * (len(df_in) - 1)
     return df_out
 
@@ -231,17 +215,15 @@ def create_train_rows(
 def create_classifier_preds(
     cols_pred, X_train, Y_train, X_valid, Y_valid, weights, df_Unlabeled
 ):
-    if False:
-        clf = LogisticRegressionCV(
-            class_weight = "balanced", max_iter=500
-        ).fit(X_train[cols_pred], Y_train, sample_weight=weights)
-    else:
-        clf = RandomForestClassifier(
-            n_estimators=N_ESTIMATORS,  # 100 default
-            class_weight="balanced",
-            max_depth=MAX_DEPTH,
-            n_jobs=-1,
-        ).fit(X_train[cols_pred], Y_train, sample_weight=weights)
+
+    # clf = LogisticRegressionCV(class_weight = "balanced", max_iter=500).fit(X_train[cols_pred], Y_train, sample_weight=weights)
+
+    clf = RandomForestClassifier(
+        n_estimators=N_ESTIMATORS,  # 100 default
+        class_weight="balanced",
+        max_depth=MAX_DEPTH,
+        n_jobs=-1,
+    ).fit(X_train[cols_pred], Y_train, sample_weight=weights)
 
     preds_train = predict_proba(clf, X_train, cols_pred)
     preds_valid = predict_proba(clf, X_valid, cols_pred)
@@ -265,34 +247,25 @@ def create_plots(
         preds_unlabeled[preds_unlabeled < 0.5],
         preds_unlabeled[preds_unlabeled > 0.5],
     )
-    # plt.hist(preds05, bins=50)
-    plt.close("all")
-    ifig, axes = plt.subplots(nrows=3, ncols=1, figsize=(6, 8), dpi=100)
-    plt.subplot(2, 1, 1)
-    plt.hist(pos_train, bins=50)
-    plt.hist(pos_valid, bins=50)
-    plt.title(
-        f"DUBPLICATES train-valid-unlabeled: means={np.mean(pos_train):.2f}, {np.mean(pos_valid):.2f}"
-    )
-    plt.subplot(2, 1, 2)
-    if False:
+
+    if PLOT_DEBUG_FLAG:
+        plt.close("all")
+        ifig, axes = plt.subplots(nrows=3, ncols=1, figsize=(6, 8), dpi=100)
+        plt.subplot(2, 1, 1)
+        plt.hist(pos_train, bins=50)
+        plt.hist(pos_valid, bins=50)
+        plt.title(
+            f"DUBPLICATES train-valid-unlabeled: means={np.mean(pos_train):.2f}, {np.mean(pos_valid):.2f}"
+        )
+        plt.subplot(2, 1, 2)
         s = f"NON-DUPLICATES train-valid margin: means={np.mean(neg_train):.2f}, {np.mean(neg_valid):.2f}"
         plt.hist(neg_train, bins=10)
         plt.hist(neg_valid, bins=10)
-    else:
+        plt.title(s)
         s = f"DUBPLICATES  unlabeled mean={np.mean(pos_unlabeled):.2f}"
         plt.hist(pos_unlabeled, bins=50)
-    plt.title(s)
-    if False:
-        plt.subplot(4, 1, 4)
-        abs_preds05 = np.abs(preds05)
-        plt.hist(preds05[abs_preds05 < thresh], bins=50)
-        plt.title(
-            f"Near-Boundary (<{LABELS_MAX_THRESHOLD}): Num = {np.sum(abs_preds05<thresh) } of {len(df_Unlabeled)}"
-        )
-        plt.subplot(4, 1, 3)
-        plt.plot(pred_thresh_list)
-    plt.show()
+        plt.title(s)
+        plt.show()
 
 
 def active_strategy(predictions_level05, df_Unlabeled):
@@ -371,7 +344,7 @@ def create_training_from_blocks(
         f" collect: Unreachable objects collected by GC:{n}. uncollectable garbage {gc.garbage}"
     )
     logger.info(f"create simple labels")
-    df_True, df_False, df_Unlabeled = None, None, df_k_k
+    df_true, df_false, df_unlabeled = None, None, df_k_k
     if min_name_dist > 0:
         # DUPLICATES
         mask_true = (df_k_k["name_dist_int"] < min_name_dist) & (
@@ -380,17 +353,17 @@ def create_training_from_blocks(
         # NON-DUPLICATES
 
         mask_false = df_k_k["dist"] > LABELS_NEGATIVE_MIN_DIST
-        df_True, df_False, df_Unlabeled = (
+        df_true, df_false, df_unlabeled = (
             df_k_k[mask_true],
             df_k_k[mask_false],
             df_k_k[~mask_true & ~mask_false],
         )
-    return df_True, df_False, df_Unlabeled
+    return df_true, df_false, df_unlabeled
 
 
 if __name__ == "__main__":
     try:
-        logger.info(f"\n... read blocks for all records\n")
+        logger.info(f"\n... read blocks all records\n")
         pickle_off = open(f"{PATH}/blocks.pickle", "rb")
     except Exception as e:
         logger.info(f"\n... blocks.pickle does not exist ({e}), read blocks small subset 20K records\n")

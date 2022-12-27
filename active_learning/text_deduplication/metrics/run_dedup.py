@@ -5,26 +5,22 @@ import numpy as np
 import random
 import gc
 from multiprocessing import Pool
-# UserWarning: Loky-backed parallel loops cannot be called in a multiprocessing, setting n_jobs=1
 import warnings
-
 from metrics.run_clf import predict_proba, create_train_rows
+from metrics.settings import DEDUP_BATCH_SIZE, DEDUP_PROB_THRESHOLD, DEDUP_NUM_RANDOM_BLOCKS_SELECT, DEDUP_BLOCKS_PER_PROCESS, PATH
+
 
 warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 pd.options.mode.chained_assignment = None  # default='warn'
 
+
 pd.set_option("display.max_rows", 500)
 pd.set_option("display.max_columns", 500)
 pd.set_option("display.width", 1000)
 
-DEDUP_BATCH_SIZE = 200000
-DEDUP_PROB_THRESHOLD = 0.5
-NUM_RANDOM_BLOCKS_SELECT = -1
-BLOCKS_PER_PROCESS = 100
 
-PATH = "metrics"
 cols_save = [
     "idx_x",
     "idx_y",
@@ -85,7 +81,7 @@ def process_block(ind_block):
     """ list of blocks each block is DataFrame"""
     ind = ind_block[0]
     df_k_list = ind_block[1]
-    logger.info(f"parallel process {ind} (chunks of {BLOCKS_PER_PROCESS} blocks)")
+    logger.info(f"parallel process {ind} ({DEDUP_BLOCKS_PER_PROCESS} blocks)")
     df_k_k_list = [create_train_rows(d) for d in df_k_list if d is not None]
     write_duplicates(df_k_k_list, fn1=f"{PATH}/duplicates_big_{ind}.csv")
     return ind
@@ -93,8 +89,8 @@ def process_block(ind_block):
 
 def run_parallel(blocks):
     blocks_li_li = [
-        blocks[i : i + BLOCKS_PER_PROCESS]
-        for i in range(0, len(blocks), BLOCKS_PER_PROCESS)
+        blocks[i : i + DEDUP_BLOCKS_PER_PROCESS]
+        for i in range(0, len(blocks), DEDUP_BLOCKS_PER_PROCESS)
     ]
     logger.info(f"multiprocessing Pool: *** {len(blocks_li_li)} *** parallel lists")
     pool = Pool()  # processes=NUM_THREADS)  # 8 cores/16
@@ -108,10 +104,10 @@ def run_parallel(blocks):
 
 if __name__ == "__main__":
     try:
-        logger.info(f"\n...open blocks for 500K records\n")
+        logger.info(f"\n...open blocks all records\n")
         pickle_off = open(f"{PATH}/blocks.pickle", "rb")
     except Exception as e:
-        logger.info(f"\n.../blocks.pickle not exsit {e}, open blocks for small subset 20K records\n")
+        logger.info(f"\n.../blocks.pickle not exsit {e}, open blocks small subset 20K records\n")
         pickle_off = open(f"{PATH}/blocks_small.pickle", "rb")
 
     total_df_k_k_list, df_all, df_anom = pickle.load(pickle_off)
@@ -119,7 +115,7 @@ if __name__ == "__main__":
     pickle_off = open(f"{PATH}/clf.pickle", "rb")
     clf, scaler, cols_pred, cols_view = pickle.load(pickle_off)
     # create duplicates list
-    if NUM_RANDOM_BLOCKS_SELECT > 0:
+    if DEDUP_NUM_RANDOM_BLOCKS_SELECT > 0:
         blocks = random.sample(total_df_k_k_list, NUM_RANDOM_BLOCKS_SELECT)
     else:
         blocks = total_df_k_k_list
