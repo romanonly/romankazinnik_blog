@@ -37,3 +37,13 @@ Retrain Classifier with newly added Labels
 ### 100mins = X32 cores 32K blocks at 10 blocks per min processing
 
 Run Classifier Inferences for All Block of Pairs
+
+# Questions and future work
+
+### How to estimate the actual classification accuracy attained by this algorithm?
+
+### Experiment with features and model architectures and improve the classification accuracy
+
+### Production-grade: current algorithms runs parallel and persists all computations but doesn't robust to failures. 
+It needs to be restarted if even one block out of thousands fails to compute. How to implement an optimal reducer to aggregate all the results?
+
