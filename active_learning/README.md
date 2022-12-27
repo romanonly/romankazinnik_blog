@@ -13,6 +13,8 @@ chmod +x create_docker.sh
 
 ## Clone, create docker image (10-15mins) and run four steps:
 
+## Fast test: 10mins 20K records. Run all with 'all' (500K+ records, 10 hours)  
+
 step_1_create_blocks.sh # fast test run, 10min. add 'all' full run, 10 hrs 
 
 step_2_train_clf.sh
@@ -21,11 +23,6 @@ step_3_dedup_run_clf.sh
 
 step_4_final.sh
 
-## Run quck test (10mins 20K records): uncomment 'docker run' in create_docker.sh 
-./create_docker.sh
-
-## Run all (500K+ records, 10 hours)  
-./create_docker.sh all
 
 # Results
 
