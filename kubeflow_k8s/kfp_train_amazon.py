@@ -10,7 +10,8 @@ from kfp.v2.dsl import component
 
 
 @component(
-    packages_to_install = ["pandas", "openpyxl", "fsspec"], output_component_file = "component_amazon_load_dataset.yaml"
+    packages_to_install = ["pandas", "openpyxl", "fsspec"],
+    output_component_file = "component_amazon_load_dataset.yaml"
 )
 def load_dataset(url: str, num_samples: int, output_labels_artifacts: Output[Artifact],
                  output_text_artifacts: Output[Artifact]):
@@ -22,7 +23,8 @@ def load_dataset(url: str, num_samples: int, output_labels_artifacts: Output[Art
 
     df.columns = ['rating', 'title']
 
-    df = df.sample(n = num_samples)
+    if num_samples > 1:
+        df = df.sample(n = num_samples)
 
     text = df['title'].tolist()
     text = [str(t).encode('ascii', 'replace') for t in text]
@@ -40,7 +42,7 @@ def load_dataset(url: str, num_samples: int, output_labels_artifacts: Output[Art
 
 
 @component(
-    packages_to_install = ["tensorflow", "pandas", "tensorflow_hub", "pickle"],
+    packages_to_install = ["tensorflow", "tensorflow_hub"],
     output_component_file = "component_nnlm_model.yaml"
 )
 def nnlm_model_download(untrained_model: Output[Artifact]):
@@ -65,13 +67,21 @@ def nnlm_model_download(untrained_model: Output[Artifact]):
 
 
 @component(
-    packages_to_install = ["tensorflow", "pandas", "tensorflow_hub", "pickle"],
+    packages_to_install = ["tensorflow", "pandas"],
     output_component_file = "component_train_model.yaml"
 )
-def train(epochs: int, batch_size: int, input_labels_artifacts: Input[Artifact], input_text_artifacts: Input[Artifact],
-          input_untrained_model: Input[Artifact], output_model: Output[Artifact], output_history: Output[Artifact], ):
-    import pickle
+def train(epochs: int,
+          batch_size: int,
+          input_labels_artifacts: Input[Artifact],
+          input_text_artifacts: Input[Artifact],
+          input_untrained_model: Input[Artifact],
+          output_model: Output[Artifact],
+          output_history: Output[Artifact],
+          output_metrics: Output[Dataset]
+          ):
     import tensorflow as tf
+    import pickle
+    import pandas as pd
 
     print("Training the model ...")
 
@@ -86,17 +96,27 @@ def train(epochs: int, batch_size: int, input_labels_artifacts: Input[Artifact],
 
     history = model.fit(
         x_train, y_train, batch_size = batch_size, epochs = epochs, verbose = 1, validation_split = 0.2,
-        # validation_data = (x_val, y_val),
     )
-
+    loss, acc = model.evaluate(x = x_train, y = y_train)
+    print("\n\n\n Loss = {}, Acc = {} ".format(loss, acc))
+    metrics = pd.DataFrame(
+        list(
+            zip(
+                ['train_loss', 'train_accuracy'], [loss, acc]
+            )
+        ), columns = ['Name', 'val']
+    )
     model.save(output_model.path)
-
     with open(output_history.path, "wb") as file:
         pickle.dump(history.history, file)
+    metrics.to_csv(output_metrics.path, index = False)
+
+
+# fails when explicitly install pickle
 
 
 @component(
-    packages_to_install = ["tensorflow", "pandas", "pickle"], output_component_file = "component_eval_model.yaml"
+    packages_to_install = ["tensorflow", "pandas"], output_component_file = "component_eval_model.yaml"
 )
 def eval_model(input_model: Input[Artifact], input_labels_artifacts: Input[Artifact],
                input_text_artifacts: Input[Artifact], output_metrics: Output[Dataset]):
@@ -127,7 +147,7 @@ def eval_model(input_model: Input[Artifact], input_labels_artifacts: Input[Artif
 
 @dsl.pipeline(
     name = "train_amazon_pipeline", )
-def my_pipeline(epochs: int = 10, batch_size: int = 12, num_samples: int = -1,
+def my_pipeline(epochs: int = 10, batch_size: int = 12, num_samples: int = 10000,
                 url_train: str = "https://www.dropbox.com/s/tdsek2g4jwfoy8q/train.csv?dl=1",
                 url_test: str = "https://www.dropbox.com/s/tdsek2g4jwfoy8q/test.csv?dl=1"):
     download_train_data_task = load_dataset(url = url_train, num_samples = num_samples)
@@ -151,5 +171,5 @@ def my_pipeline(epochs: int = 10, batch_size: int = 12, num_samples: int = -1,
 
 
 kfp.compiler.Compiler(mode = kfp.dsl.PipelineExecutionMode.V2_COMPATIBLE).compile(
-    pipeline_func = my_pipeline, package_path = 'pipeline_amazon010.yaml'
+    pipeline_func = my_pipeline, package_path = 'pipeline_amazon.yaml'
 )
