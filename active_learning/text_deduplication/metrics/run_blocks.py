@@ -1,16 +1,16 @@
-import pandas as pd
-import pickle
 import logging
+import pickle
 import sys
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from metrics.settings import BLOCKS_NUMBER_LAT, BLOCKS_NUMBER_LON, BLOCKS_EPS, BLOCKS_MAX_ROWS, \
     BLOCKS_MAX_RECURSIVE_DEPTH, BLOCKS_NANS_DROP_COLS, BLOCKS_ANOMALY_STD_NUM, PATH, PATH_CSV, PLOT_DEBUG_FLAG
 
 fn_csv = "css_public_all_ofos_locations.csv"
 
-
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level = logging.INFO)
 logger = logging.getLogger(__name__)
 pd.options.mode.chained_assignment = None  # default='warn'
 
@@ -22,26 +22,26 @@ plt.close("all")
 
 
 def read_data(fn: str, is_remove_id=True):
-    df = pd.read_csv(f"{PATH_CSV}/{fn}", sep="\x01", dtype=str, index_col=0)
-    df.reset_index(inplace=True)
+    df = pd.read_csv(f"{PATH_CSV}/{fn}", sep = "\x01", dtype = str, index_col = 0)
+    df.reset_index(inplace = True)
     # missing values
     logger.info(f"null values:\n{df.isnull().sum()}")
     logger.info(f"Num rows={len(df)}")
     logger.info(f"dropping NaN cols={BLOCKS_NANS_DROP_COLS}")
     if not is_remove_id:
         BLOCKS_NANS_DROP_COLS.remove("restaurant_id")
-    df = df.drop(BLOCKS_NANS_DROP_COLS, axis=1)
+    df = df.drop(BLOCKS_NANS_DROP_COLS, axis = 1)
     logger.info(f"dropping NaN rows")
     df["sub_platform"] = df["sub_platform"].fillna("")
     if not is_remove_id:
         logger.info(f"nan num df[restaurant_id] = {df['restaurant_id'].isnull().sum()}")
         df["restaurant_id"] = df["restaurant_id"].fillna(-1)
-    df.dropna(inplace=True)
+    df.dropna(inplace = True)
     logger.info(f"Num rows={len(df)}")
 
     cols_numeric = ["latitude", "longitude"]
-    df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
-    df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
+    df["latitude"] = pd.to_numeric(df["latitude"], errors = "coerce")
+    df["longitude"] = pd.to_numeric(df["longitude"], errors = "coerce")
     df[cols_numeric] = df[cols_numeric].astype(float)
     cols_str = [
         "name",
@@ -76,26 +76,26 @@ def remove_anomalies(df_all):
 
 
 def recursive_split(
-    df_recursive: pd.DataFrame,
-    col1: str,
-    x1: float,
-    x2: float,
-    col2: str,
-    y1: float,
-    y2: float,
-    depth,
+        df_recursive: pd.DataFrame,
+        col1: str,
+        x1: float,
+        x2: float,
+        col2: str,
+        y1: float,
+        y2: float,
+        depth,
 ):
     """ df_recursive """
     df_k = df_recursive[
         (
-            (
-                (df_recursive[col1] > -BLOCKS_EPS + x1)
-                & (df_recursive[col1] < BLOCKS_EPS + x2)
-            )
-            & (
-                (df_recursive[col2] > -BLOCKS_EPS + y1)
-                & (df_recursive[col2] < BLOCKS_EPS + y2)
-            )
+                (
+                        (df_recursive[col1] > -BLOCKS_EPS + x1)
+                        & (df_recursive[col1] < BLOCKS_EPS + x2)
+                )
+                & (
+                        (df_recursive[col2] > -BLOCKS_EPS + y1)
+                        & (df_recursive[col2] < BLOCKS_EPS + y2)
+                )
         )
     ]
     if len(df_k) < BLOCKS_MAX_ROWS or depth > BLOCKS_MAX_RECURSIVE_DEPTH:
@@ -115,7 +115,7 @@ def recursive_split(
 def create_blocks(df0):
     e = BLOCKS_EPS
     dlat_i = (df0["latitude"].max() - df0["latitude"].min() + e) / (
-        BLOCKS_NUMBER_LAT - 1
+            BLOCKS_NUMBER_LAT - 1
     )
     lati_i = df0["latitude"].min() + dlat_i * range(BLOCKS_NUMBER_LAT)
 
@@ -123,10 +123,10 @@ def create_blocks(df0):
     max_rows = []
     for i in range(1, BLOCKS_NUMBER_LAT):
         if i % (1 + int(BLOCKS_NUMBER_LAT / 100)) == 0:
-            logger.info(f"blocking processed {int(100*i/BLOCKS_NUMBER_LAT)} %")
+            logger.info(f"blocking processed {int(100 * i / BLOCKS_NUMBER_LAT)} %")
         df_i = df0[
             (df0["latitude"] > -e + lati_i[i - 1]) & (df0["latitude"] < e + lati_i[i])
-        ]
+            ]
         if df_i.shape[0] > 0:
             if df_i.shape[0] < BLOCKS_MAX_ROWS:
                 total_df_k_k_list.append(df_i.copy())
@@ -141,7 +141,7 @@ def create_blocks(df0):
                     df_recursive = df_i[
                         (df_i["longitude"] > -e + long_i[k - 1])
                         & (df_i["longitude"] < e + long_i[k])
-                    ]
+                        ]
                     df_k_k_list = recursive_split(
                         df_recursive,
                         "longitude",
@@ -150,7 +150,7 @@ def create_blocks(df0):
                         "latitude",
                         lati_i[i - 1],
                         lati_i[i],
-                        depth=0,
+                        depth = 0,
                     )
                     if len(df_k_k_list) > 0:
                         all_blocks = [dff.shape[0] for dff in df_k_k_list]
@@ -174,14 +174,14 @@ def get_data(fn):
     df_anom, df_clean = remove_anomalies(df)
     logger.info(f"\nanomalies number rows = {len(df_anom)}")
     if PLOT_DEBUG_FLAG:
-        plt.hist(df["latitude"], bins=20)
+        plt.hist(df["latitude"], bins = 20)
         plt.title(f"latitude anomalies")
         plt.show()
-        plt.hist(df["longitude"], bins=20)
+        plt.hist(df["longitude"], bins = 20)
         plt.title(f"longitude anomalies")
         plt.show()
-        plt.hist(df_clean["latitude"], bins=20)
-        plt.hist(df_clean["longitude"], bins=20)
+        plt.hist(df_clean["latitude"], bins = 20)
+        plt.hist(df_clean["longitude"], bins = 20)
         plt.show()
 
     return df_clean, df_anom
@@ -194,12 +194,13 @@ if __name__ == "__main__":
     # total arguments
     if 1 == len(sys.argv):
         logger.info(f"\n subsample quick test\n")
-        df_clean = df_clean.sample(n=20000, replace=False)  # sample 20K rows
+        df_clean = df_clean.sample(n = 20000, replace = False)  # sample 20K rows
     else:
         logger.info(f"\n blocking all records (arg = {sys.argv[1]})\n")
     max_rows, total_df_k_k_list = create_blocks(df_clean)
     logger.info(f"Number blocks: {len(total_df_k_k_list)}")
-    logger.info(f"Blocks: Max/Mean/std rows per block = {max(max_rows)}, {np.mean(max_rows):.2f}, {np.std(max_rows):.2f}")
+    logger.info(
+        f"Blocks: Max/Mean/std rows per block = {max(max_rows)}, {np.mean(max_rows):.2f}, {np.std(max_rows):.2f}")
     # pickle unpickle
     if 1 == len(sys.argv):
         pickling_on = open(f"{PATH}/blocks_small.pickle", "wb")
