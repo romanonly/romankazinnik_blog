@@ -47,7 +47,6 @@ LABELS_COLS_STRINGS = [
     "active",
 ]
 
-
 # run dedup
 
 DEDUP_BATCH_SIZE = 200000
