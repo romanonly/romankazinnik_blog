@@ -55,7 +55,7 @@ kubectl describe serviceaccount admin-user -n kubernetes-dashboard
 
 kubectl describe secret admin-user-token-xj8r5 -n kubernetes-dashboard
 
-## Install two conda environments, create Kubeflow pipelines and run validation trainings in conda 
+## Install two conda environments, create Kubeflow pipelines, and run validation trainings in conda 
 
 Kubeflow 1.7.0 requires Python >=3.6.1
 
@@ -88,7 +88,7 @@ pipeline_five_components_py.yaml
 pipeline_two_components_py.yaml
 
 
-### When done you can delete Kubeflow and cluster
+### Delete Kubeflow and cluster
 export PIPELINE_VERSION=1.7.0
 
 kubectl delete -k "github.com/kubeflow/pipelines/manifests/kustomize/env/platform-agnostic-pns?ref=$PIPELINE_VERSION"
@@ -97,7 +97,7 @@ kubectl delete -k "github.com/kubeflow/pipelines/manifests/kustomize/cluster-sco
 
 kind delete cluster
 
-## You can run local trainings in conda (no Kubeflow/k8s) 
+## Optional: run local trainings in conda (without Kubeflow/k8s) 
 
 conda create --name py37tf230 python=3.7
 
