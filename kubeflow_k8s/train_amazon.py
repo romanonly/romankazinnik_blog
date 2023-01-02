@@ -34,9 +34,11 @@ def get_model():
     model.add(hub_layer)
     model.add(tf.keras.layers.Dense(64, activation = 'relu'))
     model.add(tf.keras.layers.Dense(3, activation = 'softmax', name = 'output'))
+    optimizer = tf.keras.optimizers.Adam(learning_rate = 0.01)  # compare to SGD
     model.compile(
+        optimizer = optimizer,  # 'Adam',
         loss = 'categorical_crossentropy',
-        optimizer = 'Adam', metrics = ['accuracy']
+        metrics = ['accuracy']
     )
     model.summary()
     return model

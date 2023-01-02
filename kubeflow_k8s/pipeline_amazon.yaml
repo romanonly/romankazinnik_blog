@@ -4,11 +4,12 @@ metadata:
   generateName: train-amazon-pipeline-
   annotations:
     pipelines.kubeflow.org/kfp_sdk_version: 1.7.0
-    pipelines.kubeflow.org/pipeline_compilation_time: '2022-12-30T08:24:37.286572'
+    pipelines.kubeflow.org/pipeline_compilation_time: '2023-01-02T15:21:11.924091'
     pipelines.kubeflow.org/pipeline_spec: '{"inputs": [{"default": "10", "name": "epochs",
       "optional": true, "type": "Integer"}, {"default": "12", "name": "batch_size",
       "optional": true, "type": "Integer"}, {"default": "10000", "name": "num_samples",
-      "optional": true, "type": "Integer"}, {"default": "https://www.dropbox.com/s/tdsek2g4jwfoy8q/train.csv?dl=1",
+      "optional": true, "type": "Integer"}, {"default": "0.001", "name": "learning_rate",
+      "optional": true, "type": "Float"}, {"default": "https://www.dropbox.com/s/tdsek2g4jwfoy8q/train.csv?dl=1",
       "name": "url_train", "optional": true, "type": "String"}, {"default": "https://www.dropbox.com/s/tdsek2g4jwfoy8q/test.csv?dl=1",
       "name": "url_test", "optional": true, "type": "String"}, {"default": "", "name":
       "pipeline-output-directory"}, {"default": "pipeline/train_amazon_pipeline",
@@ -41,7 +42,7 @@ spec:
         from typing import *
 
         def eval_model(input_model: Input[Artifact], input_labels_artifacts: Input[Artifact],
-                       input_text_artifacts: Input[Artifact], output_metrics: Output[Dataset]):
+                       input_text_artifacts: Input[Artifact], output_metrics_eval: Output[Dataset]):
             import tensorflow as tf
             import pickle
             import pandas as pd
@@ -64,7 +65,7 @@ spec:
                     )
                 ), columns = ['Name', 'val']
             )
-            metrics.to_csv(output_metrics.path, index = False)
+            metrics.to_csv(output_metrics_eval.path, index = False)
 
       - --executor_input
       - '{{$}}'
@@ -76,8 +77,8 @@ spec:
       - '{{$.inputs.artifacts[''input_labels_artifacts''].path}}'
       - --input-text-artifacts-output-path
       - '{{$.inputs.artifacts[''input_text_artifacts''].path}}'
-      - --output-metrics-output-path
-      - '{{$.outputs.artifacts[''output_metrics''].path}}'
+      - --output-metrics-eval-output-path
+      - '{{$.outputs.artifacts[''output_metrics_eval''].path}}'
       command: [/kfp-launcher/launch, --mlmd_server_address, $(METADATA_GRPC_SERVICE_HOST),
         --mlmd_server_port, $(METADATA_GRPC_SERVICE_PORT), --runtime_info_json, $(KFP_V2_RUNTIME_INFO),
         --container_image, $(KFP_V2_IMAGE), --task_name, eval-model, --pipeline_name,
@@ -111,8 +112,8 @@ spec:
           {"metadataPath": "/tmp/inputs/input_model/data", "schemaTitle": "system.Artifact",
           "instanceSchema": ""}, "input_text_artifacts": {"metadataPath": "/tmp/inputs/input_text_artifacts/data",
           "schemaTitle": "system.Artifact", "instanceSchema": ""}}, "outputParameters":
-          {}, "outputArtifacts": {"output_metrics": {"schemaTitle": "system.Dataset",
-          "instanceSchema": "", "metadataPath": "/tmp/outputs/output_metrics/data"}}}'}
+          {}, "outputArtifacts": {"output_metrics_eval": {"schemaTitle": "system.Dataset",
+          "instanceSchema": "", "metadataPath": "/tmp/outputs/output_metrics_eval/data"}}}'}
       envFrom:
       - configMapRef: {name: metadata-grpc-configmap, optional: true}
       image: python:3.7
@@ -128,7 +129,7 @@ spec:
       - {name: load-dataset-2-output_text_artifacts, path: /tmp/inputs/input_text_artifacts/data}
     outputs:
       artifacts:
-      - {name: eval-model-output_metrics, path: /tmp/outputs/output_metrics/data}
+      - {name: eval-model-output_metrics_eval, path: /tmp/outputs/output_metrics_eval/data}
     metadata:
       annotations:
         pipelines.kubeflow.org/v2_component: "true"
@@ -430,9 +431,6 @@ spec:
             model.add(hub_layer)
             model.add(tf.keras.layers.Dense(64, activation = 'relu'))
             model.add(tf.keras.layers.Dense(3, activation = 'softmax', name = 'output'))
-            model.compile(
-                loss = 'categorical_crossentropy', optimizer = 'Adam', metrics = ['accuracy']
-            )
             model.summary()
             print("\n\nsave untrained_model.pickle\n\n")
             model.save(untrained_model.path)
@@ -523,12 +521,13 @@ spec:
 
         def train(epochs: int,
                   batch_size: int,
+                  learning_rate: float,
                   input_labels_artifacts: Input[Artifact],
                   input_text_artifacts: Input[Artifact],
                   input_untrained_model: Input[Artifact],
                   output_model: Output[Artifact],
                   output_history: Output[Artifact],
-                  output_metrics: Output[Dataset]
+                  output_metrics_train: Output[Dataset]
                   ):
             import tensorflow as tf
             import pickle
@@ -544,7 +543,13 @@ spec:
 
             # model = get_model()
             model = tf.keras.models.load_model(input_untrained_model.path)
-
+            optimizer = tf.keras.optimizers.Adam(learning_rate = learning_rate)  # compare to SGD
+            model.compile(
+                optimizer = optimizer,
+                loss = 'categorical_crossentropy',
+                metrics = ['accuracy']
+            )
+            model.summary()
             history = model.fit(
                 x_train, y_train, batch_size = batch_size, epochs = epochs, verbose = 1, validation_split = 0.2,
             )
@@ -560,7 +565,7 @@ spec:
             model.save(output_model.path)
             with open(output_history.path, "wb") as file:
                 pickle.dump(history.history, file)
-            metrics.to_csv(output_metrics.path, index = False)
+            metrics.to_csv(output_metrics_train.path, index = False)
 
       - --executor_input
       - '{{$}}'
@@ -570,6 +575,8 @@ spec:
       - '{{$.inputs.parameters[''epochs'']}}'
       - --batch-size-output-path
       - '{{$.inputs.parameters[''batch_size'']}}'
+      - --learning-rate-output-path
+      - '{{$.inputs.parameters[''learning_rate'']}}'
       - --input-labels-artifacts-output-path
       - '{{$.inputs.artifacts[''input_labels_artifacts''].path}}'
       - --input-text-artifacts-output-path
@@ -580,8 +587,8 @@ spec:
       - '{{$.outputs.artifacts[''output_model''].path}}'
       - --output-history-output-path
       - '{{$.outputs.artifacts[''output_history''].path}}'
-      - --output-metrics-output-path
-      - '{{$.outputs.artifacts[''output_metrics''].path}}'
+      - --output-metrics-train-output-path
+      - '{{$.outputs.artifacts[''output_metrics_train''].path}}'
       command: [/kfp-launcher/launch, --mlmd_server_address, $(METADATA_GRPC_SERVICE_HOST),
         --mlmd_server_port, $(METADATA_GRPC_SERVICE_PORT), --runtime_info_json, $(KFP_V2_RUNTIME_INFO),
         --container_image, $(KFP_V2_IMAGE), --task_name, train, --pipeline_name, '{{inputs.parameters.pipeline-name}}',
@@ -589,7 +596,7 @@ spec:
         --namespace, $(KFP_NAMESPACE), --pod_name, $(KFP_POD_NAME), --pod_uid, $(KFP_POD_UID),
         --pipeline_root, '{{inputs.parameters.pipeline-output-directory}}', --enable_caching,
         $(ENABLE_CACHING), --, 'batch_size={{inputs.parameters.batch_size}}', 'epochs={{inputs.parameters.epochs}}',
-        --]
+        'learning_rate={{inputs.parameters.learning_rate}}', --]
       env:
       - name: KFP_POD_NAME
         valueFrom:
@@ -611,17 +618,18 @@ spec:
           fieldRef: {fieldPath: 'metadata.labels[''pipelines.kubeflow.org/enable_caching'']'}
       - {name: KFP_V2_IMAGE, value: 'python:3.7'}
       - {name: KFP_V2_RUNTIME_INFO, value: '{"inputParameters": {"batch_size": {"type":
-          "INT"}, "epochs": {"type": "INT"}}, "inputArtifacts": {"input_labels_artifacts":
-          {"metadataPath": "/tmp/inputs/input_labels_artifacts/data", "schemaTitle":
-          "system.Artifact", "instanceSchema": ""}, "input_text_artifacts": {"metadataPath":
-          "/tmp/inputs/input_text_artifacts/data", "schemaTitle": "system.Artifact",
-          "instanceSchema": ""}, "input_untrained_model": {"metadataPath": "/tmp/inputs/input_untrained_model/data",
-          "schemaTitle": "system.Artifact", "instanceSchema": ""}}, "outputParameters":
-          {}, "outputArtifacts": {"output_history": {"schemaTitle": "system.Artifact",
-          "instanceSchema": "", "metadataPath": "/tmp/outputs/output_history/data"},
-          "output_metrics": {"schemaTitle": "system.Dataset", "instanceSchema": "",
-          "metadataPath": "/tmp/outputs/output_metrics/data"}, "output_model": {"schemaTitle":
-          "system.Artifact", "instanceSchema": "", "metadataPath": "/tmp/outputs/output_model/data"}}}'}
+          "INT"}, "epochs": {"type": "INT"}, "learning_rate": {"type": "DOUBLE"}},
+          "inputArtifacts": {"input_labels_artifacts": {"metadataPath": "/tmp/inputs/input_labels_artifacts/data",
+          "schemaTitle": "system.Artifact", "instanceSchema": ""}, "input_text_artifacts":
+          {"metadataPath": "/tmp/inputs/input_text_artifacts/data", "schemaTitle":
+          "system.Artifact", "instanceSchema": ""}, "input_untrained_model": {"metadataPath":
+          "/tmp/inputs/input_untrained_model/data", "schemaTitle": "system.Artifact",
+          "instanceSchema": ""}}, "outputParameters": {}, "outputArtifacts": {"output_history":
+          {"schemaTitle": "system.Artifact", "instanceSchema": "", "metadataPath":
+          "/tmp/outputs/output_history/data"}, "output_metrics_train": {"schemaTitle":
+          "system.Dataset", "instanceSchema": "", "metadataPath": "/tmp/outputs/output_metrics_train/data"},
+          "output_model": {"schemaTitle": "system.Artifact", "instanceSchema": "",
+          "metadataPath": "/tmp/outputs/output_model/data"}}}'}
       envFrom:
       - configMapRef: {name: metadata-grpc-configmap, optional: true}
       image: python:3.7
@@ -631,6 +639,7 @@ spec:
       parameters:
       - {name: batch_size}
       - {name: epochs}
+      - {name: learning_rate}
       - {name: pipeline-name}
       - {name: pipeline-output-directory}
       artifacts:
@@ -640,14 +649,14 @@ spec:
     outputs:
       artifacts:
       - {name: train-output_history, path: /tmp/outputs/output_history/data}
-      - {name: train-output_metrics, path: /tmp/outputs/output_metrics/data}
+      - {name: train-output_metrics_train, path: /tmp/outputs/output_metrics_train/data}
       - {name: train-output_model, path: /tmp/outputs/output_model/data}
     metadata:
       annotations:
         pipelines.kubeflow.org/v2_component: "true"
         pipelines.kubeflow.org/component_ref: '{}'
         pipelines.kubeflow.org/arguments.parameters: '{"batch_size": "{{inputs.parameters.batch_size}}",
-          "epochs": "{{inputs.parameters.epochs}}"}'
+          "epochs": "{{inputs.parameters.epochs}}", "learning_rate": "{{inputs.parameters.learning_rate}}"}'
       labels:
         pipelines.kubeflow.org/kfp_sdk_version: 1.7.0
         pipelines.kubeflow.org/pipeline-sdk-type: kfp
@@ -665,6 +674,7 @@ spec:
       parameters:
       - {name: batch_size}
       - {name: epochs}
+      - {name: learning_rate}
       - {name: num_samples}
       - {name: pipeline-name}
       - {name: pipeline-output-directory}
@@ -712,6 +722,7 @@ spec:
           parameters:
           - {name: batch_size, value: '{{inputs.parameters.batch_size}}'}
           - {name: epochs, value: '{{inputs.parameters.epochs}}'}
+          - {name: learning_rate, value: '{{inputs.parameters.learning_rate}}'}
           - {name: pipeline-name, value: '{{inputs.parameters.pipeline-name}}'}
           - {name: pipeline-output-directory, value: '{{inputs.parameters.pipeline-output-directory}}'}
           artifacts:
@@ -723,6 +734,7 @@ spec:
     - {name: epochs, value: '10'}
     - {name: batch_size, value: '12'}
     - {name: num_samples, value: '10000'}
+    - {name: learning_rate, value: '0.001'}
     - {name: url_train, value: 'https://www.dropbox.com/s/tdsek2g4jwfoy8q/train.csv?dl=1'}
     - {name: url_test, value: 'https://www.dropbox.com/s/tdsek2g4jwfoy8q/test.csv?dl=1'}
     - {name: pipeline-output-directory, value: ''}

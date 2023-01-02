@@ -58,9 +58,6 @@ def nnlm_model_download(untrained_model: Output[Artifact]):
     model.add(hub_layer)
     model.add(tf.keras.layers.Dense(64, activation = 'relu'))
     model.add(tf.keras.layers.Dense(3, activation = 'softmax', name = 'output'))
-    model.compile(
-        loss = 'categorical_crossentropy', optimizer = 'Adam', metrics = ['accuracy']
-    )
     model.summary()
     print("\n\nsave untrained_model.pickle\n\n")
     model.save(untrained_model.path)
@@ -72,12 +69,13 @@ def nnlm_model_download(untrained_model: Output[Artifact]):
 )
 def train(epochs: int,
           batch_size: int,
+          learning_rate: float,
           input_labels_artifacts: Input[Artifact],
           input_text_artifacts: Input[Artifact],
           input_untrained_model: Input[Artifact],
           output_model: Output[Artifact],
           output_history: Output[Artifact],
-          output_metrics: Output[Dataset]
+          output_metrics_train: Output[Dataset]
           ):
     import tensorflow as tf
     import pickle
@@ -93,7 +91,13 @@ def train(epochs: int,
 
     # model = get_model()
     model = tf.keras.models.load_model(input_untrained_model.path)
-
+    optimizer = tf.keras.optimizers.Adam(learning_rate = learning_rate)  # compare to SGD
+    model.compile(
+        optimizer = optimizer,
+        loss = 'categorical_crossentropy',
+        metrics = ['accuracy']
+    )
+    model.summary()
     history = model.fit(
         x_train, y_train, batch_size = batch_size, epochs = epochs, verbose = 1, validation_split = 0.2,
     )
@@ -109,7 +113,7 @@ def train(epochs: int,
     model.save(output_model.path)
     with open(output_history.path, "wb") as file:
         pickle.dump(history.history, file)
-    metrics.to_csv(output_metrics.path, index = False)
+    metrics.to_csv(output_metrics_train.path, index = False)
 
 
 # fails when explicitly install pickle
@@ -119,7 +123,7 @@ def train(epochs: int,
     packages_to_install = ["tensorflow", "pandas"], output_component_file = "component_eval_model.yaml"
 )
 def eval_model(input_model: Input[Artifact], input_labels_artifacts: Input[Artifact],
-               input_text_artifacts: Input[Artifact], output_metrics: Output[Dataset]):
+               input_text_artifacts: Input[Artifact], output_metrics_eval: Output[Dataset]):
     import tensorflow as tf
     import pickle
     import pandas as pd
@@ -142,13 +146,14 @@ def eval_model(input_model: Input[Artifact], input_labels_artifacts: Input[Artif
             )
         ), columns = ['Name', 'val']
     )
-    metrics.to_csv(output_metrics.path, index = False)
+    metrics.to_csv(output_metrics_eval.path, index = False)
 
 
 @dsl.pipeline(name = "train_amazon_pipeline")
 def my_pipeline(epochs: int = 10,
                 batch_size: int = 12,
                 num_samples: int = 10000,
+                learning_rate: float = 1e-3,
                 url_train: str = "https://www.dropbox.com/s/tdsek2g4jwfoy8q/train.csv?dl=1",
                 url_test: str = "https://www.dropbox.com/s/tdsek2g4jwfoy8q/test.csv?dl=1"):
     download_train_data_task = load_dataset(url = url_train, num_samples = num_samples)
@@ -156,7 +161,7 @@ def my_pipeline(epochs: int = 10,
     nnlm_model = nnlm_model_download()
 
     train_model_task = train(
-        epochs = epochs, batch_size = batch_size,
+        epochs = epochs, batch_size = batch_size, learning_rate = learning_rate,
         input_labels_artifacts = download_train_data_task.outputs["output_labels_artifacts"],
         input_text_artifacts = download_train_data_task.outputs["output_text_artifacts"],
         input_untrained_model = nnlm_model.outputs["untrained_model"]
