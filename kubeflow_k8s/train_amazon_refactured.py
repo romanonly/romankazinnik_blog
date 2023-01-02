@@ -46,10 +46,6 @@ def get_model(output_untrained_model: str):
     model.add(hub_layer)
     model.add(tf.keras.layers.Dense(64, activation = 'relu'))
     model.add(tf.keras.layers.Dense(3, activation = 'softmax', name = 'output'))
-    model.compile(
-        loss = 'categorical_crossentropy',
-        optimizer = 'Adam', metrics = ['accuracy']
-    )
     model.summary()
     print("\n\nsave untrained_model.pickle\n\n")
     model.save(output_untrained_model)
@@ -61,8 +57,9 @@ def train(
         input_untrained_model: str,
         output_model: str,
         output_history: str,
-        EPOCHS=5,
-        BATCH_SIZE=32,
+        epochs=5,
+        batch_size=32,
+        learning_rate=1e-3,
 ):
     print("Training the model ...")
 
@@ -73,10 +70,16 @@ def train(
         x_train = pickle.load(file)
 
     model = tf.keras.models.load_model(input_untrained_model)
-
+    optimizer = tf.keras.optimizers.Adam(learning_rate = learning_rate)  # compare to SGD
+    model.compile(
+        optimizer = optimizer,  # 'Adam',
+        loss = 'categorical_crossentropy',
+        metrics = ['accuracy']
+    )
+    model.summary()
     WORKING_DIR = os.getcwd()  # use to specify model checkpoint path
     history = model.fit(
-        x_train, y_train, batch_size = BATCH_SIZE, epochs = EPOCHS, verbose = 1,
+        x_train, y_train, batch_size = batch_size, epochs = epochs, verbose = 1,
         validation_split = 0.2,  # validation_data = (x_val, y_val),
         callbacks = [tf.keras.callbacks.ModelCheckpoint(
             os.path.join(
@@ -122,7 +125,7 @@ if __name__ == '__main__':
 
     load_dataset(
         url = "https://www.dropbox.com/s/tdsek2g4jwfoy8q/train.csv?dl=1",
-        num_samples = 1000,
+        num_samples = -1,
         output_labels_artifacts = "labels_artifacts_train.pickle",
         output_text_artifacts = "text_artifacts_train.pickle"
     )
@@ -143,7 +146,7 @@ if __name__ == '__main__':
 
     load_dataset(
         url = "https://www.dropbox.com/s/tdsek2g4jwfoy8q/test.csv?dl=1",
-        num_samples = 1000,
+        num_samples = -1,
         output_labels_artifacts = "labels_artifacts_test.pickle",
         output_text_artifacts = "text_artifacts_test.pickle"
     )
