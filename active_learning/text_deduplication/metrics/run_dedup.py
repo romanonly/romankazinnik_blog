@@ -1,25 +1,24 @@
-import pandas as pd
-import pickle
-import logging
-import numpy as np
-import random
 import gc
-from multiprocessing import Pool
+import logging
+import pickle
+import random
 import warnings
-from metrics.run_clf import predict_proba, create_train_rows
-from metrics.settings import DEDUP_BATCH_SIZE, DEDUP_PROB_THRESHOLD, DEDUP_NUM_RANDOM_BLOCKS_SELECT, DEDUP_BLOCKS_PER_PROCESS, PATH
+from multiprocessing import Pool
 
+import numpy as np
+import pandas as pd
+from metrics.run_clf import predict_proba, create_train_rows
+from metrics.settings import DEDUP_BATCH_SIZE, DEDUP_PROB_THRESHOLD, DEDUP_NUM_RANDOM_BLOCKS_SELECT, \
+    DEDUP_BLOCKS_PER_PROCESS, PATH, NUM_CPU_THREADS
 
 warnings.filterwarnings("ignore")
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level = logging.INFO)
 logger = logging.getLogger(__name__)
 pd.options.mode.chained_assignment = None  # default='warn'
-
 
 pd.set_option("display.max_rows", 500)
 pd.set_option("display.max_columns", 500)
 pd.set_option("display.width", 1000)
-
 
 cols_save = [
     "idx_x",
@@ -41,7 +40,7 @@ def write_duplicates(df_k_k_list: pd.DataFrame, fn1: str):
         for ind, df_unlabeled_ind in enumerate(df_k_k_list):
             if df_unlabeled_ind is not None and len(df_unlabeled_ind) > 0:
                 df_unlabeled_concat = pd.concat(
-                    objs=[df_unlabeled_concat, df_unlabeled_ind], axis=0
+                    objs = [df_unlabeled_concat, df_unlabeled_ind], axis = 0
                 )
             # Write Batch Inferences
             if ind == len(df_k_k_list) - 1 or len(df_unlabeled_concat) > DEDUP_BATCH_SIZE:
@@ -57,19 +56,19 @@ def write_duplicates(df_k_k_list: pd.DataFrame, fn1: str):
                 df_a["probability_duplicate"] = pred_prob
                 df_pos = df_a.iloc[pos_ind]
                 if len(df_pos) > 0:
-                    df_pos.reset_index(drop=True, inplace=True)
+                    df_pos.reset_index(drop = True, inplace = True)
                     df_duplicates = pd.concat(
-                        objs=[df_duplicates, df_pos[cols_save]], axis=0
+                        objs = [df_duplicates, df_pos[cols_save]], axis = 0
                     )
                     # logger.info(f"\n{df_pos[cols_save]}\n") # df_pos[cols_view]
                     df_duplicates.drop_duplicates(
-                        ["idx_x", "idx_y"], keep="last", inplace=True
+                        ["idx_x", "idx_y"], keep = "last", inplace = True
                     )
                     df_duplicates.to_csv(fn1)
         df_duplicates.sort_values(
-            by=["probability_duplicate"], ascending=False, inplace=True
+            by = ["probability_duplicate"], ascending = False, inplace = True
         )
-        df_duplicates.reset_index(drop=True, inplace=True)
+        df_duplicates.reset_index(drop = True, inplace = True)
         df_duplicates.to_csv(fn1)
         logger.info(f"writing {fn1}")
     except Exception as e:
@@ -83,17 +82,17 @@ def process_block(ind_block):
     df_k_list = ind_block[1]
     logger.info(f"parallel process {ind} ({DEDUP_BLOCKS_PER_PROCESS} blocks)")
     df_k_k_list = [create_train_rows(d) for d in df_k_list if d is not None]
-    write_duplicates(df_k_k_list, fn1=f"{PATH}/duplicates_big_{ind}.csv")
+    write_duplicates(df_k_k_list, fn1 = f"{PATH}/duplicates_big_{ind}.csv")
     return ind
 
 
 def run_parallel(blocks):
     blocks_li_li = [
-        blocks[i : i + DEDUP_BLOCKS_PER_PROCESS]
+        blocks[i: i + DEDUP_BLOCKS_PER_PROCESS]
         for i in range(0, len(blocks), DEDUP_BLOCKS_PER_PROCESS)
     ]
     logger.info(f"multiprocessing Pool: *** {len(blocks_li_li)} *** parallel lists")
-    pool = Pool()  # processes=NUM_THREADS)  # 8 cores/16
+    pool = Pool(processes = NUM_CPU_THREADS)  # 8 cores/16
     df_k_k_li_li = pool.map(
         process_block, zip(range(len(blocks_li_li)), blocks_li_li)
     )

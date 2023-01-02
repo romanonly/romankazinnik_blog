@@ -1,0 +1,259 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: pipeline-two-comps-
+  annotations:
+    pipelines.kubeflow.org/kfp_sdk_version: 1.7.0
+    pipelines.kubeflow.org/pipeline_compilation_time: '2022-12-29T21:13:44.495340'
+    pipelines.kubeflow.org/pipeline_spec: '{"inputs": [{"name": "url", "type": "String"},
+      {"default": "-1", "name": "num_samples", "optional": true, "type": "Integer"},
+      {"default": "", "name": "pipeline-output-directory"}, {"default": "pipeline/pipeline-two-comps",
+      "name": "pipeline-name"}], "name": "pipeline-two-comps"}'
+    pipelines.kubeflow.org/v2_pipeline: "true"
+  labels:
+    pipelines.kubeflow.org/v2_pipeline: "true"
+    pipelines.kubeflow.org/kfp_sdk_version: 1.7.0
+spec:
+  entrypoint: pipeline-two-comps
+  templates:
+  - name: download-data
+    container:
+      args:
+      - sh
+      - -c
+      - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet                 --no-warn-script-location
+        'pandas' 'openpyxl' 'kfp==1.7.0' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3
+        -m pip install --quiet                 --no-warn-script-location 'pandas'
+        'openpyxl' 'kfp==1.7.0' --user) && "$0" "$@"
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp -d)
+        printf "%s" "$0" > "$program_path/ephemeral_component.py"
+        python3 -m kfp.components.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+      - |2+
+
+        from kfp.v2.dsl import *
+        from typing import *
+
+        def download_data(url:str, num_samples: int, output_csv:Output[Dataset]):
+            import pandas as pd
+
+            # Use pandas excel reader
+            df = pd.read_excel(url)
+            df = df.sample(frac=1).reset_index(drop=True)
+            if num_samples > 0:
+                df = df.sample(n=num_samples)
+            df.to_csv(output_csv.path, index=False)
+
+      - --executor_input
+      - '{{$}}'
+      - --function_to_execute
+      - download_data
+      - --url-output-path
+      - '{{$.inputs.parameters[''url'']}}'
+      - --num-samples-output-path
+      - '{{$.inputs.parameters[''num_samples'']}}'
+      - --output-csv-output-path
+      - '{{$.outputs.artifacts[''output_csv''].path}}'
+      command: [/kfp-launcher/launch, --mlmd_server_address, $(METADATA_GRPC_SERVICE_HOST),
+        --mlmd_server_port, $(METADATA_GRPC_SERVICE_PORT), --runtime_info_json, $(KFP_V2_RUNTIME_INFO),
+        --container_image, $(KFP_V2_IMAGE), --task_name, download-data, --pipeline_name,
+        '{{inputs.parameters.pipeline-name}}', --run_id, $(KFP_RUN_ID), --run_resource,
+        workflows.argoproj.io/$(WORKFLOW_ID), --namespace, $(KFP_NAMESPACE), --pod_name,
+        $(KFP_POD_NAME), --pod_uid, $(KFP_POD_UID), --pipeline_root, '{{inputs.parameters.pipeline-output-directory}}',
+        --enable_caching, $(ENABLE_CACHING), --, 'num_samples={{inputs.parameters.num_samples}}',
+        'url={{inputs.parameters.url}}', --]
+      env:
+      - name: KFP_POD_NAME
+        valueFrom:
+          fieldRef: {fieldPath: metadata.name}
+      - name: KFP_POD_UID
+        valueFrom:
+          fieldRef: {fieldPath: metadata.uid}
+      - name: KFP_NAMESPACE
+        valueFrom:
+          fieldRef: {fieldPath: metadata.namespace}
+      - name: WORKFLOW_ID
+        valueFrom:
+          fieldRef: {fieldPath: 'metadata.labels[''workflows.argoproj.io/workflow'']'}
+      - name: KFP_RUN_ID
+        valueFrom:
+          fieldRef: {fieldPath: 'metadata.labels[''pipeline/runid'']'}
+      - name: ENABLE_CACHING
+        valueFrom:
+          fieldRef: {fieldPath: 'metadata.labels[''pipelines.kubeflow.org/enable_caching'']'}
+      - {name: KFP_V2_IMAGE, value: 'python:3.7'}
+      - {name: KFP_V2_RUNTIME_INFO, value: '{"inputParameters": {"num_samples": {"type":
+          "INT"}, "url": {"type": "STRING"}}, "inputArtifacts": {}, "outputParameters":
+          {}, "outputArtifacts": {"output_csv": {"schemaTitle": "system.Dataset",
+          "instanceSchema": "", "metadataPath": "/tmp/outputs/output_csv/data"}}}'}
+      envFrom:
+      - configMapRef: {name: metadata-grpc-configmap, optional: true}
+      image: python:3.7
+      volumeMounts:
+      - {mountPath: /kfp-launcher, name: kfp-launcher}
+    inputs:
+      parameters:
+      - {name: num_samples}
+      - {name: pipeline-name}
+      - {name: pipeline-output-directory}
+      - {name: url}
+    outputs:
+      artifacts:
+      - {name: download-data-output_csv, path: /tmp/outputs/output_csv/data}
+    metadata:
+      annotations:
+        pipelines.kubeflow.org/v2_component: "true"
+        pipelines.kubeflow.org/component_ref: '{}'
+        pipelines.kubeflow.org/arguments.parameters: '{"num_samples": "{{inputs.parameters.num_samples}}",
+          "url": "{{inputs.parameters.url}}"}'
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.7.0
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/v2_component: "true"
+        pipelines.kubeflow.org/enable_caching: "true"
+    initContainers:
+    - command: [launcher, --copy, /kfp-launcher/launch]
+      image: gcr.io/ml-pipeline/kfp-launcher:1.7.0
+      name: kfp-launcher
+      mirrorVolumeMounts: true
+    volumes:
+    - {name: kfp-launcher}
+  - name: pipeline-two-comps
+    inputs:
+      parameters:
+      - {name: num_samples}
+      - {name: pipeline-name}
+      - {name: pipeline-output-directory}
+      - {name: url}
+    dag:
+      tasks:
+      - name: download-data
+        template: download-data
+        arguments:
+          parameters:
+          - {name: num_samples, value: '{{inputs.parameters.num_samples}}'}
+          - {name: pipeline-name, value: '{{inputs.parameters.pipeline-name}}'}
+          - {name: pipeline-output-directory, value: '{{inputs.parameters.pipeline-output-directory}}'}
+          - {name: url, value: '{{inputs.parameters.url}}'}
+      - name: split-data
+        template: split-data
+        dependencies: [download-data]
+        arguments:
+          parameters:
+          - {name: pipeline-name, value: '{{inputs.parameters.pipeline-name}}'}
+          - {name: pipeline-output-directory, value: '{{inputs.parameters.pipeline-output-directory}}'}
+          artifacts:
+          - {name: download-data-output_csv, from: '{{tasks.download-data.outputs.artifacts.download-data-output_csv}}'}
+  - name: split-data
+    container:
+      args:
+      - sh
+      - -c
+      - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet                 --no-warn-script-location
+        'pandas' 'scikit-learn' 'kfp==1.7.0' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3
+        -m pip install --quiet                 --no-warn-script-location 'pandas'
+        'scikit-learn' 'kfp==1.7.0' --user) && "$0" "$@"
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp -d)
+        printf "%s" "$0" > "$program_path/ephemeral_component.py"
+        python3 -m kfp.components.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+      - |2+
+
+        from kfp.v2.dsl import *
+        from typing import *
+
+        def split_data(input_csv: Input[Dataset], train_csv: Output[Dataset], test_csv: Output[Dataset]):
+            import pandas as pd
+            from sklearn.model_selection import train_test_split
+
+            df = pd.read_csv(input_csv.path)
+            train, test = train_test_split(df, test_size=0.2)
+
+            train.to_csv(train_csv.path, index=False)
+            test.to_csv(test_csv.path, index=False)
+
+      - --executor_input
+      - '{{$}}'
+      - --function_to_execute
+      - split_data
+      - --input-csv-output-path
+      - '{{$.inputs.artifacts[''input_csv''].path}}'
+      - --train-csv-output-path
+      - '{{$.outputs.artifacts[''train_csv''].path}}'
+      - --test-csv-output-path
+      - '{{$.outputs.artifacts[''test_csv''].path}}'
+      command: [/kfp-launcher/launch, --mlmd_server_address, $(METADATA_GRPC_SERVICE_HOST),
+        --mlmd_server_port, $(METADATA_GRPC_SERVICE_PORT), --runtime_info_json, $(KFP_V2_RUNTIME_INFO),
+        --container_image, $(KFP_V2_IMAGE), --task_name, split-data, --pipeline_name,
+        '{{inputs.parameters.pipeline-name}}', --run_id, $(KFP_RUN_ID), --run_resource,
+        workflows.argoproj.io/$(WORKFLOW_ID), --namespace, $(KFP_NAMESPACE), --pod_name,
+        $(KFP_POD_NAME), --pod_uid, $(KFP_POD_UID), --pipeline_root, '{{inputs.parameters.pipeline-output-directory}}',
+        --enable_caching, $(ENABLE_CACHING), --, --]
+      env:
+      - name: KFP_POD_NAME
+        valueFrom:
+          fieldRef: {fieldPath: metadata.name}
+      - name: KFP_POD_UID
+        valueFrom:
+          fieldRef: {fieldPath: metadata.uid}
+      - name: KFP_NAMESPACE
+        valueFrom:
+          fieldRef: {fieldPath: metadata.namespace}
+      - name: WORKFLOW_ID
+        valueFrom:
+          fieldRef: {fieldPath: 'metadata.labels[''workflows.argoproj.io/workflow'']'}
+      - name: KFP_RUN_ID
+        valueFrom:
+          fieldRef: {fieldPath: 'metadata.labels[''pipeline/runid'']'}
+      - name: ENABLE_CACHING
+        valueFrom:
+          fieldRef: {fieldPath: 'metadata.labels[''pipelines.kubeflow.org/enable_caching'']'}
+      - {name: KFP_V2_IMAGE, value: 'python:3.7'}
+      - {name: KFP_V2_RUNTIME_INFO, value: '{"inputParameters": {}, "inputArtifacts":
+          {"input_csv": {"metadataPath": "/tmp/inputs/input_csv/data", "schemaTitle":
+          "system.Dataset", "instanceSchema": ""}}, "outputParameters": {}, "outputArtifacts":
+          {"test_csv": {"schemaTitle": "system.Dataset", "instanceSchema": "", "metadataPath":
+          "/tmp/outputs/test_csv/data"}, "train_csv": {"schemaTitle": "system.Dataset",
+          "instanceSchema": "", "metadataPath": "/tmp/outputs/train_csv/data"}}}'}
+      envFrom:
+      - configMapRef: {name: metadata-grpc-configmap, optional: true}
+      image: python:3.7
+      volumeMounts:
+      - {mountPath: /kfp-launcher, name: kfp-launcher}
+    inputs:
+      parameters:
+      - {name: pipeline-name}
+      - {name: pipeline-output-directory}
+      artifacts:
+      - {name: download-data-output_csv, path: /tmp/inputs/input_csv/data}
+    outputs:
+      artifacts:
+      - {name: split-data-test_csv, path: /tmp/outputs/test_csv/data}
+      - {name: split-data-train_csv, path: /tmp/outputs/train_csv/data}
+    metadata:
+      annotations:
+        pipelines.kubeflow.org/v2_component: "true"
+        pipelines.kubeflow.org/component_ref: '{}'
+      labels:
+        pipelines.kubeflow.org/kfp_sdk_version: 1.7.0
+        pipelines.kubeflow.org/pipeline-sdk-type: kfp
+        pipelines.kubeflow.org/v2_component: "true"
+        pipelines.kubeflow.org/enable_caching: "true"
+    initContainers:
+    - command: [launcher, --copy, /kfp-launcher/launch]
+      image: gcr.io/ml-pipeline/kfp-launcher:1.7.0
+      name: kfp-launcher
+      mirrorVolumeMounts: true
+    volumes:
+    - {name: kfp-launcher}
+  arguments:
+    parameters:
+    - {name: url}
+    - {name: num_samples, value: '-1'}
+    - {name: pipeline-output-directory, value: ''}
+    - {name: pipeline-name, value: pipeline/pipeline-two-comps}
+  serviceAccountName: pipeline-runner
