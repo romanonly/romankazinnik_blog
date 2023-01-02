@@ -20,18 +20,40 @@ Installing recommended local Kubernetes cluster v1.19.1 fails but v1.21.1 will d
 
 #### kubectl version  --output=yaml
 
-Install Kubeflow
+## Install Kubeflow
 
-#### export PIPELINE_VERSION=1.7.0
-#### kubectl apply -k "github.com/kubeflow/pipelines/manifests/kustomize/cluster-scoped-resources?ref=$PIPELINE_VERSION&timeout=300"
-#### kubectl wait --for condition=established --timeout=300s crd/applications.app.k8s.io
-#### kubectl apply -k "github.com/kubeflow/pipelines/manifests/kustomize/env/platform-agnostic-pns?ref=$PIPELINE_VERSION&timeout=300"
+ export PIPELINE_VERSION=1.7.0
+
+ kubectl apply -k "github.com/kubeflow/pipelines/manifests/kustomize/cluster-scoped-resources?ref=$PIPELINE_VERSION&timeout=300"
+
+ kubectl wait --for condition=established --timeout=300s crd/applications.app.k8s.io
+
+ kubectl apply -k "github.com/kubeflow/pipelines/manifests/kustomize/env/platform-agnostic-pns?ref=$PIPELINE_VERSION&timeout=300"
 
 ### kubectl get deploy -n kubeflow 
 You should see all deployments with the READY status before you can proceed to the next section.
 
-#### kubectl port-forward -n kubeflow svc/ml-pipeline-ui 8080:80
-#### http://localhost:8080
+ kubectl port-forward -n kubeflow svc/ml-pipeline-ui 8080:80
+
+ http://localhost:8080
+
+## Install cluster dashboard (optional)
+
+https://helm.sh/docs/intro/install/
+
+sudo dnf -y install arm-image-installer helm-3.5.4-2.fc35.x86_64
+
+helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+
+helm install dashboard kubernetes-dashboard/kubernetes-dashboard -n kubernetes-dashboard --create-namespace
+
+cat > service-account.yaml
+
+kubectl apply -f service-account.yaml
+
+kubectl describe serviceaccount admin-user -n kubernetes-dashboard
+
+kubectl describe secret admin-user-token-xj8r5 -n kubernetes-dashboard
 
 ## Install two conda environments, create Kubeflow pipelines and run validation trainings in conda 
 

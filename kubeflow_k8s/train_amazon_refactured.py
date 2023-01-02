@@ -120,7 +120,6 @@ def export_model(model, base_path="kfp_amazon_review/"):
 if __name__ == '__main__':
     print("\n\nLoading training data ...")
 
-    # y_val, x_val = 
     load_dataset(
         url = "https://www.dropbox.com/s/tdsek2g4jwfoy8q/train.csv?dl=1",
         num_samples = 1000,
