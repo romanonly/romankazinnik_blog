@@ -145,9 +145,10 @@ def eval_model(input_model: Input[Artifact], input_labels_artifacts: Input[Artif
     metrics.to_csv(output_metrics.path, index = False)
 
 
-@dsl.pipeline(
-    name = "train_amazon_pipeline", )
-def my_pipeline(epochs: int = 10, batch_size: int = 12, num_samples: int = 10000,
+@dsl.pipeline(name = "train_amazon_pipeline")
+def my_pipeline(epochs: int = 10,
+                batch_size: int = 12,
+                num_samples: int = 10000,
                 url_train: str = "https://www.dropbox.com/s/tdsek2g4jwfoy8q/train.csv?dl=1",
                 url_test: str = "https://www.dropbox.com/s/tdsek2g4jwfoy8q/test.csv?dl=1"):
     download_train_data_task = load_dataset(url = url_train, num_samples = num_samples)
