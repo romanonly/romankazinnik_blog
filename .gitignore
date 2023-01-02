@@ -3,3 +3,12 @@ active_learning/text_deduplication/metrics/__pycache__/run_blocks.cpython-36.pyc
 *.pyc
 *.csv
 *.pickle
+kubeflow_k8s/component_amazon_load_dataset.yaml
+kubeflow_k8s/component_eval_model.yaml
+kubeflow_k8s/component_nnlm_model.yaml
+kubeflow_k8s/component_train_model.yaml
+kubeflow_k8s/model_checkpoint/assets/tokens.txt
+kubeflow_k8s/model_checkpoint/saved_model.pb
+kubeflow_k8s/model_checkpoint/variables/variables.data-00000-of-00001
+kubeflow_k8s/model_checkpoint/variables/variables.index
+kubeflow_k8s/pipeline_amazon_lr.yaml
