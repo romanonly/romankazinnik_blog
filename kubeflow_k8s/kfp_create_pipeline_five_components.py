@@ -114,9 +114,11 @@ def train_model(input_train_x: Input[Dataset], input_train_y: Input[Artifact], o
 
     # Specify the optimizer, and compile the model with loss functions for both outputs
     optimizer = tf.keras.optimizers.SGD(learning_rate = 0.001)
-    model.compile(optimizer = optimizer, loss = {'y1_output': 'mse', 'y2_output': 'mse'},
-                  metrics = {'y1_output': tf.keras.metrics.RootMeanSquaredError(),
-                             'y2_output': tf.keras.metrics.RootMeanSquaredError()})
+    model.compile(
+        optimizer = optimizer, loss = {'y1_output': 'mse', 'y2_output': 'mse'},
+        metrics = {'y1_output': tf.keras.metrics.RootMeanSquaredError(),
+                   'y2_output': tf.keras.metrics.RootMeanSquaredError()}
+    )
     # Train the model for 500 epochs
     history = model.fit(norm_train_X, train_Y, epochs = 100, batch_size = 10)
     model.save(output_model.path)
@@ -141,12 +143,22 @@ def eval_model(input_model: Input[Model], input_history: Input[Artifact], input_
 
     # Test the model and print loss and mse for both outputs
     loss, Y1_loss, Y2_loss, Y1_rmse, Y2_rmse = model.evaluate(x = norm_test_X, y = test_Y)
-    print("Loss = {}, Y1_loss = {}, Y1_mse = {}, Y2_loss = {}, Y2_mse = {}".format(loss, Y1_loss, Y1_rmse, Y2_loss,
-                                                                                   Y2_rmse))
+    print(
+        "Loss = {}, Y1_loss = {}, Y1_mse = {}, Y2_loss = {}, Y2_mse = {}".format(
+            loss, Y1_loss, Y1_rmse, Y2_loss,
+            Y2_rmse
+        )
+    )
 
-    metrics = pd.DataFrame(list(zip(['loss', 'Y1_loss', 'Y2_loss', 'Y1_rmse', 'Y2_rmse'],
-                                    [loss, Y1_loss, Y2_loss, Y1_rmse, Y2_rmse])),
-                           columns = ['Name', 'val'])
+    metrics = pd.DataFrame(
+        list(
+            zip(
+                ['loss', 'Y1_loss', 'Y2_loss', 'Y1_rmse', 'Y2_rmse'],
+                [loss, Y1_loss, Y2_loss, Y1_rmse, Y2_rmse]
+            )
+        ),
+        columns = ['Name', 'val']
+    )
     metrics.to_csv(output_metrics.path, index = False)
     MLPipeline_Metrics.log_metric("loss", loss)
     MLPipeline_Metrics.log_metric("Y1_loss", Y1_loss)
@@ -163,19 +175,64 @@ def my_pipeline(url: str = "https://archive.ics.uci.edu/ml/machine-learning-data
 
     split_data_task = split_data(input_csv = download_data_task.outputs['output_csv'])
 
-    preprocess_data_task = preprocess_data(input_train_csv = split_data_task.outputs['train_csv'],
-                                           input_test_csv = split_data_task.outputs['test_csv'])
+    preprocess_data_task = preprocess_data(
+        input_train_csv = split_data_task.outputs['train_csv'],
+        input_test_csv = split_data_task.outputs['test_csv']
+    )
 
-    train_model_task = train_model(input_train_x = preprocess_data_task.outputs["output_train_x"],
-                                   input_train_y = preprocess_data_task.outputs["output_train_y"])
+    train_model_task = train_model(
+        input_train_x = preprocess_data_task.outputs["output_train_x"],
+        input_train_y = preprocess_data_task.outputs["output_train_y"]
+    )
 
-    eval_model_task = eval_model(input_model = train_model_task.outputs["output_model"],
-                                 input_history = train_model_task.outputs["output_history"],
-                                 input_test_x = preprocess_data_task.outputs["output_test_x"],
-                                 input_test_y = preprocess_data_task.outputs["output_test_y"])
+    eval_model_task = eval_model(
+        input_model = train_model_task.outputs["output_model"],
+        input_history = train_model_task.outputs["output_history"],
+        input_test_x = preprocess_data_task.outputs["output_test_x"],
+        input_test_y = preprocess_data_task.outputs["output_test_y"]
+    )
 
     return
 
 
-kfp.compiler.Compiler(mode = kfp.dsl.PipelineExecutionMode.V2_COMPATIBLE).compile(pipeline_func = my_pipeline,
-                                                                                  package_path = 'pipeline_five_components_py_001.yaml')
+package_path = 'pipeline_five.yaml'
+
+kfp.compiler.Compiler(mode = kfp.dsl.PipelineExecutionMode.V2_COMPATIBLE).compile(
+    pipeline_func = my_pipeline,
+    package_path = package_path
+)
+
+
+# Stress
+
+
+def run_exp(pipeline_func, params, pipeline_filename, pipeline_package_path):
+    EXPERIMENT_NAME = 'rk_tests'
+
+    if pipeline_filename is not None:
+        kfp.compiler.Compiler(mode = kfp.dsl.PipelineExecutionMode.V2_COMPATIBLE).compile(
+            pipeline_func, pipeline_filename
+        )
+    else:
+        assert pipeline_package_path is not None
+        pipeline_filename = pipeline_package_path
+
+    client = kfp.Client()
+
+    experiment = client.create_experiment(EXPERIMENT_NAME)
+
+    client.run_pipeline(
+        experiment_id = experiment.id,
+        job_name = pipeline_func.__name__ + "-" + pipeline_filename + '-run',
+        pipeline_package_path = pipeline_filename,
+        params = params
+    )
+
+
+params = {"url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00242/ENB2012_data.xlsx",
+          'num_samples': -1}
+
+# Stress serial jobs: uncomment
+for num_samples in range(100, 110):
+    params['num_samples'] = num_samples
+    run_exp(my_pipeline, params = params, pipeline_filename = None, pipeline_package_path = package_path)

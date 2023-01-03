@@ -12,3 +12,13 @@ kubeflow_k8s/model_checkpoint/saved_model.pb
 kubeflow_k8s/model_checkpoint/variables/variables.data-00000-of-00001
 kubeflow_k8s/model_checkpoint/variables/variables.index
 kubeflow_k8s/pipeline_amazon_lr.yaml
+kubeflow_k8s/component_download_data.yaml
+kubeflow_k8s/component_preprocess_data.yaml
+kubeflow_k8s/component_split_data.yaml
+*.zip
+kubeflow_k8s/pipeline_two_components_py.yaml
+kubeflow_k8s/pipeline_two_components_py_00.yaml
+kubeflow_k8s/pipeline_two_components_py_001.yaml
+kubeflow_k8s/pipeline_two_components_py_002.yaml
+kubeflow_k8s/pipeline_two_components_py_003.yaml
+*.gz
