@@ -151,8 +151,8 @@ def eval_model(input_model: Input[Artifact], input_labels_artifacts: Input[Artif
 
 @dsl.pipeline(name = "train_amazon_pipeline")
 def my_pipeline(epochs: int = 10,
-                batch_size: int = 12,
-                num_samples: int = 10000,
+                batch_size: int = 32,
+                num_samples: int = -1,
                 learning_rate: float = 1e-3,
                 url_train: str = "https://www.dropbox.com/s/tdsek2g4jwfoy8q/train.csv?dl=1",
                 url_test: str = "https://www.dropbox.com/s/tdsek2g4jwfoy8q/test.csv?dl=1"):
@@ -207,11 +207,10 @@ def run_exp(pipeline_func, params, pipeline_filename, pipeline_package_path):
     )
 
 
-params = {'epochs': 1000, 'batch_size': 12, 'num_samples': -1, 'learning_rate': 1e-4}
+params = {'epochs': 100, 'batch_size': 32, 'num_samples': -1, 'learning_rate': 1e-4}
 
 # serial jobs examples
 
-
-for learning_rate in [1e-1, 1e-2, 1e-3, 1e-4]:
-    params['learning_rate'] = learning_rate
-    run_exp(my_pipeline, params = params, pipeline_filename = None, pipeline_package_path = package_path)
+# for learning_rate in [1e-1, 1e-2, 1e-3, 1e-4]:
+#    params['learning_rate'] = learning_rate
+#    run_exp(my_pipeline, params = params, pipeline_filename = None, pipeline_package_path = package_path)

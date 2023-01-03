@@ -7,10 +7,10 @@ import kfp
 
 package_path = 'pipeline_amazon.yaml'
 
+EXPERIMENT_NAME = 'stress_tests'
+
 
 def run_exp(job_index='-run', params=None, pipeline_filename=None, pipeline_package_path=None, pipeline_func=None):
-    EXPERIMENT_NAME = 'stress_tests'
-
     if pipeline_filename is not None:
         assert pipeline_func is not None
         kfp.compiler.Compiler(mode = kfp.dsl.PipelineExecutionMode.V2_COMPATIBLE).compile(
@@ -47,7 +47,8 @@ else:
     # stress test
     maxJobs = 20
     params['learning_rate'] = 1e-3
-    arams['num_samples'] = 1000
+    params['num_samples'] = 1000
+
 
     for ind, batch_size in enumerate(range(1, 1 + maxJobs)):
         params['batch_size'] = 8 * batch_size
