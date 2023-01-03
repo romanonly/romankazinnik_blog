@@ -49,6 +49,7 @@ else:
     params['learning_rate'] = 1e-3
     params['num_samples'] = 1000
 
+
     for ind, batch_size in enumerate(range(1, 1 + maxJobs)):
         params['batch_size'] = 8 * batch_size
         run_exp(job_index = f"-batch-index-{ind}", params = params, pipeline_package_path = package_path)
