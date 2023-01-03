@@ -233,6 +233,6 @@ params = {"url": "https://archive.ics.uci.edu/ml/machine-learning-databases/0024
           'num_samples': -1}
 
 # Stress serial jobs: uncomment
-for num_samples in range(100, 110):
-    params['num_samples'] = num_samples
-    run_exp(my_pipeline, params = params, pipeline_filename = None, pipeline_package_path = package_path)
+# for num_samples in range(100, 110):
+#    params['num_samples'] = num_samples
+#    run_exp(my_pipeline, params = params, pipeline_filename = None, pipeline_package_path = package_path)

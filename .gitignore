@@ -22,3 +22,5 @@ kubeflow_k8s/pipeline_two_components_py_001.yaml
 kubeflow_k8s/pipeline_two_components_py_002.yaml
 kubeflow_k8s/pipeline_two_components_py_003.yaml
 *.gz
+kubeflow_k8s/pipeline2.yaml
+kubeflow_k8s/pipeline_amazon2.yaml
