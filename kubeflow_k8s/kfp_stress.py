@@ -32,6 +32,7 @@ def run_exp(job_index='-run', params=None, pipeline_filename=None, pipeline_pack
 
 
 # five components
+
 package_path = 'pipeline_five.yaml'
 
 params = {"url": "https://archive.ics.uci.edu/ml/machine-learning-databases/00242/ENB2012_data.xlsx",
@@ -65,6 +66,7 @@ else:
     # stress test
     maxJobs = 10
     params['learning_rate'] = 1e-3
+
 
     for ind, batch_size in enumerate(range(1, 1 + maxJobs)):
         params['batch_size'] = 8 * batch_size
