@@ -4,7 +4,8 @@ metadata:
   generateName: train-amazon-pipeline-
   annotations:
     pipelines.kubeflow.org/kfp_sdk_version: 1.7.0
-    pipelines.kubeflow.org/pipeline_compilation_time: '2023-01-03T19:56:50.597430'
+    pipelines.kubeflow.org/pipeline_compilation_time: '2023-01-03T08:14:09.863860'
+
     pipelines.kubeflow.org/pipeline_spec: '{"inputs": [{"default": "10", "name": "epochs",
       "optional": true, "type": "Integer"}, {"default": "32", "name": "batch_size",
       "optional": true, "type": "Integer"}, {"default": "-1", "name": "num_samples",
